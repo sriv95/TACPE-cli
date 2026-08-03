@@ -9,9 +9,11 @@ from zoneinfo import ZoneInfo
 import questionary
 from rich.console import Console
 
-from src.const import WORK_REPORT_URL
+from src.const import ADD_WORK_URL, WORK_REPORT_URL
 from src.exceptions import UserCancelled
 from src.request import request
+
+UTC = ZoneInfo("UTC")
 
 console = Console()
 
@@ -26,6 +28,26 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 def fetch_works(course_id: int) -> list[dict]:
     data = json.loads(request(f"{WORK_REPORT_URL}?courseId={course_id}"))
     return data["workReport"]["works"]
+
+
+def _to_utc_date(date_str: str) -> str:
+    local_midnight = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=BANGKOK)
+    return local_midnight.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+def submit_work(course_id: int, entry: dict) -> None:
+    payload = {
+        "courseId": course_id,
+        "work": entry["work"],
+        "date": _to_utc_date(entry["date"]),
+        "time": f"{entry['time_start'].replace(':', '')}-{entry['time_end'].replace(':', '')}",
+    }
+    request(
+        ADD_WORK_URL,
+        method="POST",
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json"},
+    )
 
 
 def format_date(date_str: str) -> str:
@@ -61,14 +83,14 @@ def view_works(course_id: int) -> None:
         if selected is None:
             raise UserCancelled
         if selected is ADD_WORKS:
-            add_works_menu()
+            add_works_menu(course_id)
         elif selected is EXIT_APP:
             sys.exit(0)
         else:
             console.print("[yellow]Not implemented yet.[/yellow]")
 
 
-def add_works_menu() -> None:
+def add_works_menu(course_id: int) -> None:
     choice = questionary.select(
         "Add works:",
         choices=[
@@ -81,7 +103,7 @@ def add_works_menu() -> None:
     if choice is None:
         raise UserCancelled
     if choice == "single":
-        add_works()
+        add_works(course_id)
     elif choice == "bulk":
         console.print("[yellow]Not implemented yet.[/yellow]")
 
@@ -186,7 +208,7 @@ def _prompt_work_entry() -> dict:
     return {"date": date_str, "work": work, "time_start": time_start, "time_end": time_end, "hours": hours}
 
 
-def add_works() -> None:
+def add_works(course_id: int) -> None:
     entry = _prompt_work_entry()
 
     console.print("\n[bold]Summary[/bold]")
@@ -200,6 +222,7 @@ def add_works() -> None:
     if not confirmed:
         return
 
+    submit_work(course_id, entry)
     console.print(
         f"[bold green]Added:[/bold green] {entry['date']} | {entry['time_start']} - {entry['time_end']} "
         f"({entry['hours']:g} hrs) | {entry['work']}"
