@@ -79,6 +79,9 @@ def _read_rows(path: str) -> list[dict] | None:
 
 
 def _validate_row(row: dict, line: int) -> dict | None:
+    if not any((row.get(col) or "").strip() for col in REQUIRED_COLUMNS):
+        return None
+
     errors = []
 
     if validate_date(row["date"]) is not True:
