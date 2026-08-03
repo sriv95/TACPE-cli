@@ -7,10 +7,8 @@ from pathlib import Path
 import questionary
 from rich.console import Console
 
+from src.const import BASE_URL, TEST_URL
 from src.exceptions import UserCancelled
-
-BASE_URL = "https://ta.cpe.eng.cmu.ac.th"
-TEST_URL = f"{BASE_URL}/api/user/getWithSession"
 COOKIE_FILE = Path(__file__).resolve().parent.parent / ".cookie"
 
 console = Console()
