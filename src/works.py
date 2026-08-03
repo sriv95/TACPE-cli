@@ -113,7 +113,7 @@ def _validate_date(text: str) -> bool | str:
 
 
 def _validate_work(text: str) -> bool | str:
-    return True if text.strip() else "Work must not be empty"
+    return True if text.strip() else "Task must not be empty"
 
 
 def _parse_time(text: str) -> str | None:
@@ -173,7 +173,7 @@ def _prompt_work_entry() -> dict:
         raise UserCancelled
 
     work = questionary.text(
-        "Add a Work - Enter Work:",
+        "Add a Work - Enter Task:",
         instruction=f"\n  Date: {date_str}\n",
         validate=_validate_work,
         erase_when_done=True,
@@ -183,7 +183,7 @@ def _prompt_work_entry() -> dict:
 
     time_start = questionary.text(
         "Add a Work - Enter Start Time (HH:MM):",
-        instruction=f"\n  Date: {date_str}\n  Work: {work}\n",
+        instruction=f"\n  Date: {date_str}\n  Task: {work}\n",
         validate=_validate_time,
         erase_when_done=True,
     ).ask()
@@ -193,7 +193,7 @@ def _prompt_work_entry() -> dict:
 
     time_end = questionary.text(
         "Add a Work - Enter End Time (HH:MM):",
-        instruction=f"\n  Date: {date_str}\n  Work: {work}\n  Start: {time_start}\n",
+        instruction=f"\n  Date: {date_str}\n  Task: {work}\n  Start: {time_start}\n",
         validate=lambda text: _validate_time_end(text, time_start),
         erase_when_done=True,
     ).ask()
