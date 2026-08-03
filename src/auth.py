@@ -9,6 +9,7 @@ from rich.console import Console
 
 from src.const import BASE_URL, TEST_URL
 from src.exceptions import UserCancelled
+from src.request import set_cookie
 COOKIE_FILE = Path(__file__).resolve().parent.parent / ".cookie"
 
 console = Console()
@@ -114,7 +115,10 @@ def login() -> str:
 
     if cookie:
         if test_cookie(cookie):
+            set_cookie(cookie)
             return cookie
         console.print("[yellow]Saved cookie invalid — logging in again.[/yellow]")
 
-    return login_prompt()
+    cookie = login_prompt()
+    set_cookie(cookie)
+    return cookie
