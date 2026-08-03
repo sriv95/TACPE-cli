@@ -1,12 +1,12 @@
 """Bulk-import work entries from a CSV file, submitted one at a time with retry."""
 
 import csv
-import subprocess
 
 import questionary
 from rich.console import Console
 
 from src.exceptions import UserCancelled
+from src.file import browse_file
 from src.works import minutes, overlaps_lunch, parse_time, submit_work, validate_date, validate_work
 
 console = Console()
@@ -21,17 +21,6 @@ CSV_INSTRUCTION = (
     "\n    date,startTime,endTime,work"
     "\n    2026-07-04,10:00,14:00,Grading Assignment 1\n"
 )
-
-
-def _browse_file() -> str | None:
-    """Open native macOS file picker via AppleScript.
-    Output: (str | None) chosen file path, or None if cancelled.
-    """
-    script = 'POSIX path of (choose file with prompt "Select CSV file" of type {"csv"})'
-    result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
-    if result.returncode != 0:
-        return None
-    return result.stdout.strip()
 
 
 def select_csv_path() -> str | None:
@@ -55,9 +44,9 @@ def select_csv_path() -> str | None:
 
     if method == "browse":
         try:
-            path = _browse_file()
+            path = browse_file()
         except FileNotFoundError:
-            console.print("[yellow]File dialog unavailable (osascript not found) — enter path instead.[/yellow]")
+            console.print("[yellow]File dialog unavailable — enter path instead.[/yellow]")
         else:
             if path is None:
                 raise UserCancelled
