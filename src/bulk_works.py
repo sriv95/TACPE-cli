@@ -151,7 +151,7 @@ def add_bulk_works(course_id: int) -> None:
     summary = "\n" + "\n".join(lines) + "\n"
 
     confirmed = questionary.confirm(
-        f"Submit {len(entries)} valid work(s)?", instruction=summary, erase_when_done=True
+        f"Submit {len(entries)} valid work(s)? (Y/n)", instruction=summary, erase_when_done=True
     ).ask()
     if confirmed is None:
         raise UserCancelled
