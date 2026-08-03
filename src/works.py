@@ -39,17 +39,18 @@ def format_time(time_str: str) -> str:
 
 
 def view_works(course_id: int) -> None:
-    works = fetch_works(course_id)
+    while True:
+        works = fetch_works(course_id)
 
-    choices = [
-        questionary.Choice(
-            f"{format_date(w['date'])} | {format_time(w['time'])} | {w['work']}", value=w["_id"]
-        )
-        for w in works
-    ]
-    choices.append(questionary.Separator())
-    choices.append(questionary.Choice("Add works", value=ADD_WORKS))
-    choices.append(questionary.Choice("Exit App", value=EXIT_APP))
+        choices = [
+            questionary.Choice(
+                f"{format_date(w['date'])} | {format_time(w['time'])} | {w['work']}", value=w["_id"]
+            )
+            for w in works
+        ]
+        choices.append(questionary.Separator())
+        choices.append(questionary.Choice("Add works", value=ADD_WORKS))
+        choices.append(questionary.Choice("Exit App", value=EXIT_APP))
 
     selected = questionary.select(
         "Works:", choices=choices, default=choices[-2], erase_when_done=True
