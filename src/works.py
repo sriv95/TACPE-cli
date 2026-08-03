@@ -71,6 +71,7 @@ def add_works_menu() -> None:
         choices=[
             questionary.Choice("1. Add a work", value="single"),
             questionary.Choice("2. Add bulk works (.csv)", value="bulk"),
+            questionary.Choice("Back", value="back"),
         ],
         erase_when_done=True,
     ).ask()
