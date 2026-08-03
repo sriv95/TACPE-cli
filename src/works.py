@@ -52,17 +52,17 @@ def view_works(course_id: int) -> None:
         choices.append(questionary.Choice("Add works", value=ADD_WORKS))
         choices.append(questionary.Choice("Exit App", value=EXIT_APP))
 
-    selected = questionary.select(
-        "Works:", choices=choices, default=choices[-2], erase_when_done=True
-    ).ask()
-    if selected is None:
-        raise UserCancelled
-    if selected is ADD_WORKS:
-        add_works_menu()
-    elif selected is EXIT_APP:
-        sys.exit(0)
-    else:
-        console.print("[yellow]Not implemented yet.[/yellow]")
+        selected = questionary.select(
+            "Works:", choices=choices, default=choices[-2], erase_when_done=True
+        ).ask()
+        if selected is None:
+            raise UserCancelled
+        if selected is ADD_WORKS:
+            add_works_menu()
+        elif selected is EXIT_APP:
+            sys.exit(0)
+        else:
+            console.print("[yellow]Not implemented yet.[/yellow]")
 
 
 def add_works_menu() -> None:
