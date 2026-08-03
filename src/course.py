@@ -53,7 +53,7 @@ def list_courses(reg_year: int, reg_term: int) -> list[dict]:
 CHANGE_REG_TIME = object()
 
 
-def select_course() -> int:
+def select_course() -> tuple[int, str]:
     reg_year, reg_term = current_reg_time()
 
     while True:
@@ -81,9 +81,10 @@ def select_course() -> int:
             continue
 
         selected = next(ta for ta in courses if ta["courseId"] == course_id)
-        console.print(
-            f"[bold green]Selected:[/bold green] {selected['course']['courseTemplate']['courseNo']} "
+        label = (
+            f"{selected['course']['courseTemplate']['courseNo']} "
             f"| Sec:{selected['course']['section']:03d} "
             f"| {selected['course']['courseTemplate']['courseName']}"
         )
-        return course_id
+        console.print(f"[bold green]Selected:[/bold green] {label}")
+        return course_id, label

@@ -9,8 +9,8 @@ from src.works import view_works
 def main():
     try:
         login()
-        course_id = select_course()
-        view_works(course_id)
+        course_id, course_label = select_course()
+        view_works(course_id, course_label)
     except (UserCancelled, KeyboardInterrupt):
         sys.exit(130)
 

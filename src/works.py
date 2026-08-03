@@ -63,7 +63,7 @@ def format_time(time_str: str) -> str:
     return f"{start[:2]}:{start[2:]} - {end[:2]}:{end[2:]} ({hours:g} hrs)"
 
 
-def view_works(course_id: int) -> None:
+def view_works(course_id: int, course_label: str) -> None:
     while True:
         works = fetch_works(course_id)
 
@@ -78,7 +78,11 @@ def view_works(course_id: int) -> None:
         choices.append(questionary.Choice("Exit App", value=EXIT_APP))
 
         selected = questionary.select(
-            "Works:", choices=choices, default=choices[-2], erase_when_done=True
+            "Works:",
+            choices=choices,
+            default=choices[-2],
+            instruction=f"\n  Course: {course_label}\n",
+            erase_when_done=True,
         ).ask()
         if selected is None:
             raise UserCancelled
