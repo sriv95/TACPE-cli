@@ -82,7 +82,7 @@ def select_course() -> int:
 
         selected = next(ta for ta in courses if ta["courseId"] == course_id)
         console.print(
-            f"[bold green]Selected:[/bold green] {course_id} "
+            f"[bold green]Selected:[/bold green] {selected['course']['courseTemplate']['courseNo']} "
             f"| Sec:{selected['course']['section']:03d} "
             f"| {selected['course']['courseTemplate']['courseName']}"
         )
