@@ -92,27 +92,34 @@ def _validate_date(text: str) -> bool | str:
 
 def _parse_time(text: str) -> str | None:
     text = text.strip()
+    hour = minute = None
     if ":" in text:
         m = re.match(r"^([01]?\d|2[0-3]):([0-5]\d)$", text)
-        return f"{int(m.group(1)):02d}:{m.group(2)}" if m else None
-    if "." in text:
+        if m:
+            hour, minute = int(m.group(1)), int(m.group(2))
+    elif "." in text:
         try:
             value = float(text)
         except ValueError:
-            return None
-        hour, minute = int(value), round((value - int(value)) * 60)
-        return f"{hour:02d}:{minute:02d}" if 0 <= hour <= 23 and 0 <= minute < 60 else None
-    if text.isdigit():
-        text = text.zfill(4) if len(text) > 2 else text.zfill(2) + "00"
-        if len(text) != 4:
-            return None
-        hour, minute = int(text[:2]), int(text[2:])
-        return f"{hour:02d}:{minute:02d}" if 0 <= hour <= 23 and 0 <= minute <= 59 else None
-    return None
+            value = None
+        if value is not None:
+            hour, minute = int(value), round((value - int(value)) * 60)
+    elif text.isdigit():
+        padded = text.zfill(4) if len(text) > 2 else text.zfill(2) + "00"
+        if len(padded) == 4:
+            hour, minute = int(padded[:2]), int(padded[2:])
+
+    if hour is None or not (0 <= hour <= 23) or minute not in (0, 30):
+        return None
+    return f"{hour:02d}:{minute:02d}"
 
 
 def _validate_time(text: str) -> bool | str:
-    return True if _parse_time(text) else "Format: HH:MM, HHMM, H, or H.mm (e.g. 17:30, 1730, 17, 17.5)"
+    return (
+        True
+        if _parse_time(text)
+        else "Format: HH:MM, HHMM, H, or H.mm - minutes must be 00 or 30 (e.g. 17:30, 1730, 17, 17.5)"
+    )
 
 
 def _prompt_work_entry() -> dict:
