@@ -2,8 +2,6 @@
 
 import csv
 import subprocess
-import time
-import urllib.error
 
 import questionary
 from rich.console import Console
@@ -14,7 +12,6 @@ from src.works import minutes, overlaps_lunch, parse_time, submit_work, validate
 console = Console()
 
 REQUIRED_COLUMNS = ("date", "startTime", "endTime", "work")
-RETRY_WAITS = (1, 5, 10, 30)
 
 CSV_INSTRUCTION = (
     "\n  Required columns: date, startTime, endTime, work (other columns are ignored)"
@@ -123,22 +120,6 @@ def _validate_row(row: dict, line: int) -> dict | None:
     return {"date": row["date"], "work": row["work"], "time_start": start, "time_end": end, "hours": hours}
 
 
-def _submit_with_retry(course_id: int, entry: dict) -> None:
-    """Submit one entry, retrying with backoff (1s/5s/10s/30s, capped) on network error until it succeeds.
-    Input: course_id (int), entry (dict).
-    """
-    wait_index = 0
-    while True:
-        try:
-            submit_work(course_id, entry)
-            return
-        except urllib.error.URLError as e:
-            wait = RETRY_WAITS[min(wait_index, len(RETRY_WAITS) - 1)]
-            console.print(f"[red]Error: {e} — retrying in {wait}s[/red]")
-            time.sleep(wait)
-            wait_index += 1
-
-
 def add_bulk_works(course_id: int) -> None:
     """Full bulk-import flow: pick CSV, validate rows, show summary, confirm, submit each.
     Input: course_id (int).
@@ -178,7 +159,7 @@ def add_bulk_works(course_id: int) -> None:
         return
 
     for entry in entries:
-        _submit_with_retry(course_id, entry)
+        submit_work(course_id, entry)
         console.print(
             f"[bold green]Added:[/bold green] {entry['date']} | {entry['time_start']} - "
             f"{entry['time_end']} | {entry['work']}"
