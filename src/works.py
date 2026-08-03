@@ -191,6 +191,8 @@ def add_works() -> None:
 
     console.print("\n[bold]Summary[/bold]")
     console.print(f"{entry['date']} | {entry['time_start']} - {entry['time_end']} ({entry['hours']:g} hrs) | {entry['work']}")
+    if entry["hours"] % 1 != 0:
+        console.print(f"[yellow]Warning: {entry['hours']:g} hrs is not a whole number of hours.[/yellow]")
 
     confirmed = questionary.confirm("Submit this work?").ask()
     if confirmed is None:
