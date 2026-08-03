@@ -98,7 +98,6 @@ def login() -> str:
         cookie = None
 
     if cookie:
-        console.print("Testing saved cookie...")
         if test_cookie(cookie):
             return cookie
         console.print("[yellow]Saved cookie invalid — logging in again.[/yellow]")
