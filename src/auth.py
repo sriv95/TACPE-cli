@@ -42,13 +42,14 @@ def login_browser() -> str:
         browser = p.chromium.launch(headless=False)
         context = browser.new_context()
         page = context.new_page()
+        console.print("Opening browser")
         page.goto(BASE_URL)
-        console.print("Complete the CMU Account login (incl. MFA) in the opened browser window.")
         # only the post-login OAuth callback confirms login finished — the home page
         # URL itself would otherwise match a broader "back on this site" pattern instantly
         page.wait_for_url(f"{BASE_URL}/cmuEntraIDCallback**", timeout=0)
         # give the callback route a moment to finish setting cookies
         page.wait_for_load_state("networkidle")
+        console.print("[green]Login Successful[/green]")
 
         cookies = context.cookies(BASE_URL)
         cookie_header = "; ".join(f"{c['name']}={c['value']}" for c in cookies)
