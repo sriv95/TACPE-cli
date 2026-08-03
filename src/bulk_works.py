@@ -140,19 +140,16 @@ def add_bulk_works(course_id: int) -> None:
         console.print("[yellow]No valid rows to submit.[/yellow]")
         return
 
-    lines = []
+    console.print("\n[bold]Summary[/bold]")
     for e in entries:
-        line = f"  {e['date']} | {e['time_start']} - {e['time_end']} ({e['hours']:g} hrs) | {e['work']}"
+        line = f"{e['date']} | {e['time_start']} - {e['time_end']} ({e['hours']:g} hrs) | {e['work']}"
         if e["hours"] % 1 != 0:
-            line += "  [!] not a whole number of hours"
-        lines.append(line)
+            line += "  [yellow][!] not a whole number of hours[/yellow]"
+        console.print(line)
     total_hours = sum(e["hours"] for e in entries)
-    lines.append(f"  Total: {total_hours:g} hrs across {len(entries)} work(s)")
-    summary = "\n" + "\n".join(lines) + "\n"
+    console.print(f"\n[bold]Total: {total_hours:g} hrs across {len(entries)} work(s)[/bold]\n")
 
-    confirmed = questionary.confirm(
-        f"Submit {len(entries)} valid work(s)? (Y/n)", instruction=summary, erase_when_done=True
-    ).ask()
+    confirmed = questionary.confirm(f"Submit {len(entries)} valid work(s)?").ask()
     if confirmed is None:
         raise UserCancelled
     if not confirmed:
