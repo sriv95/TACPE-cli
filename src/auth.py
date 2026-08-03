@@ -10,7 +10,7 @@ from rich.console import Console
 from src.const import BASE_URL, TEST_URL
 from src.exceptions import UserCancelled
 from src.request import set_cookie
-COOKIE_FILE = Path(__file__).resolve().parent.parent / ".cookie"
+COOKIE_FILE = Path(__file__).resolve().parent.parent / ".cache" / ".cookie"
 
 console = Console()
 
@@ -19,6 +19,7 @@ def save_cookie(cookie: str) -> None:
     """Persist the cookie to disk.
     Input: cookie (str) - raw Cookie header string.
     """
+    COOKIE_FILE.parent.mkdir(parents=True, exist_ok=True)
     COOKIE_FILE.write_text(cookie.strip() + "\n")
 
 

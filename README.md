@@ -26,7 +26,7 @@ uv run python -m src.main
    - **Browser login**: opens a real browser window, log in with your CMU account (incl. MFA), the session cookie is captured automatically.
    - **Manual paste**: log into the site yourself, open DevTools → Network tab, copy the `Cookie` header from any request, paste it in.
 
-   The cookie is cached in `.cookie` (gitignored) and reused on future runs until it expires.
+   The cookie is cached in `.cache/.cookie` (gitignored) and reused on future runs until it expires.
 
 2. **Select course** - pick course/section you're a TA for from academic term/year
 
