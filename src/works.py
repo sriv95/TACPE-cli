@@ -57,9 +57,9 @@ def format_date(date_str: str) -> str:
 
 def format_time(time_str: str) -> str:
     start, end = time_str.split("-")
-    start_minutes = int(start[:2]) * 60 + int(start[2:])
-    end_minutes = int(end[:2]) * 60 + int(end[2:])
-    hours = (end_minutes - start_minutes) / 60
+    start_min = int(start[:2]) * 60 + int(start[2:])
+    end_min = int(end[:2]) * 60 + int(end[2:])
+    hours = (end_min - start_min) / 60
     return f"{start[:2]}:{start[2:]} - {end[:2]}:{end[2:]} ({hours:g} hrs)"
 
 
@@ -105,18 +105,20 @@ def add_works_menu(course_id: int) -> None:
     if choice == "single":
         add_works(course_id)
     elif choice == "bulk":
-        console.print("[yellow]Not implemented yet.[/yellow]")
+        from src.bulk_works import add_bulk_works
+
+        add_bulk_works(course_id)
 
 
-def _validate_date(text: str) -> bool | str:
+def validate_date(text: str) -> bool | str:
     return True if DATE_RE.match(text) else "Format: YYYY-MM-DD"
 
 
-def _validate_work(text: str) -> bool | str:
+def validate_work(text: str) -> bool | str:
     return True if text.strip() else "Task must not be empty"
 
 
-def _parse_time(text: str) -> str | None:
+def parse_time(text: str) -> str | None:
     text = text.strip()
     hour = minute = None
     if ":" in text:
@@ -143,12 +145,12 @@ def _parse_time(text: str) -> str | None:
 def _validate_time(text: str) -> bool | str:
     return (
         True
-        if _parse_time(text)
+        if parse_time(text)
         else "Format: HH:MM, HHMM, H, or H.mm - minutes must be 00 or 30 (e.g. 17:30, 1730, 17, 17.5)"
     )
 
 
-def _minutes(time_str: str) -> int:
+def minutes(time_str: str) -> int:
     hour, minute = time_str.split(":")
     return int(hour) * 60 + int(minute)
 
@@ -157,7 +159,7 @@ def _validate_time_end(text: str, start: str) -> bool | str:
     valid = _validate_time(text)
     if valid is not True:
         return valid
-    if _minutes(_parse_time(text)) - _minutes(start) < 60:
+    if minutes(parse_time(text)) - minutes(start) < 60:
         return "End time must be at least 1 hour after start time"
     return True
 
@@ -166,7 +168,7 @@ def _prompt_work_entry() -> dict:
     date_str = questionary.text(
         "Add a Work - Enter Date (YYYY-MM-DD):",
         default=datetime.now(BANGKOK).strftime("%Y-%m-%d"),
-        validate=_validate_date,
+        validate=validate_date,
         erase_when_done=True,
     ).ask()
     if date_str is None:
@@ -175,7 +177,7 @@ def _prompt_work_entry() -> dict:
     work = questionary.text(
         "Add a Work - Enter Task:",
         instruction=f"\n  Date: {date_str}\n",
-        validate=_validate_work,
+        validate=validate_work,
         erase_when_done=True,
     ).ask()
     if work is None:
@@ -189,7 +191,7 @@ def _prompt_work_entry() -> dict:
     ).ask()
     if time_start is None:
         raise UserCancelled
-    time_start = _parse_time(time_start)
+    time_start = parse_time(time_start)
 
     time_end = questionary.text(
         "Add a Work - Enter End Time (HH:MM):",
@@ -199,11 +201,11 @@ def _prompt_work_entry() -> dict:
     ).ask()
     if time_end is None:
         raise UserCancelled
-    time_end = _parse_time(time_end)
+    time_end = parse_time(time_end)
 
-    start_minutes = int(time_start[:2]) * 60 + int(time_start[3:])
-    end_minutes = int(time_end[:2]) * 60 + int(time_end[3:])
-    hours = (end_minutes - start_minutes) / 60
+    start_min = int(time_start[:2]) * 60 + int(time_start[3:])
+    end_min = int(time_end[:2]) * 60 + int(time_end[3:])
+    hours = (end_min - start_min) / 60
 
     return {"date": date_str, "work": work, "time_start": time_start, "time_end": time_end, "hours": hours}
 
