@@ -1,6 +1,5 @@
 """Cookie acquisition for the CPE TA site (Microsoft Entra ID login, no plain form)."""
 
-import argparse
 import json
 import urllib.error
 import urllib.request
@@ -77,31 +76,33 @@ def test_cookie(cookie: str) -> bool:
         return False
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    sub = parser.add_subparsers(dest="command", required=True)
-    login = sub.add_parser("login", help="Acquire and save the auth cookie")
-    login.add_argument("--method", choices=["manual", "browser"])
-    sub.add_parser("test", help="Test the saved cookie against the API")
-    args = parser.parse_args()
+def login_prompt() -> str:
+    method = questionary.select(
+        "How do you want to login?",
+        choices=[
+            questionary.Choice("1. Browser login", value="browser"),
+            questionary.Choice("2. Manual paste Cookie", value="manual"),
+        ],
+    ).ask()
+    cookie = (login_browser if method == "browser" else login_manual)()
+    if not test_cookie(cookie):
+        raise RuntimeError("Login failed the auth check after login.")
+    save_cookie(cookie)
+    console.print(f"[green]Saved[/green] to {COOKIE_FILE}")
+    return cookie
 
-    if args.command == "login":
-        method = args.method or questionary.select(
-            "How do you want to get the cookie?",
-            choices=[
-                questionary.Choice("Browser login (opens Chromium, handles MFA)", value="browser"),
-                questionary.Choice("Manual paste (copy Cookie header from DevTools)", value="manual"),
-            ],
-        ).ask()
-        cookie = (login_browser if method == "browser" else login_manual)()
+
+def login() -> str:
+    """Return a working cookie: try the saved one first, else prompt login."""
+    try:
+        cookie = load_cookie()
+    except FileNotFoundError:
+        cookie = None
+
+    if cookie:
+        console.print("Testing saved cookie...")
         if test_cookie(cookie):
-            save_cookie(cookie)
-            console.print(f"[green]Saved[/green] to {COOKIE_FILE}")
-        else:
-            console.print("[red]Not saved[/red] — cookie failed the auth check.")
-    elif args.command == "test":
-        test_cookie(load_cookie())
+            return cookie
+        console.print("[yellow]Saved cookie invalid — logging in again.[/yellow]")
 
-
-if __name__ == "__main__":
-    main()
+    return login_prompt()
