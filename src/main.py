@@ -1,5 +1,8 @@
+from src.auth import login
+
+
 def main():
-    print("Hello from tacpe-csv-to-works!")
+    login()
 
 
 if __name__ == "__main__":
