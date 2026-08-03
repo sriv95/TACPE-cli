@@ -159,6 +159,10 @@ def minutes(time_str: str) -> int:
     return int(hour) * 60 + int(minute)
 
 
+def overlaps_lunch(time_start: str, time_end: str) -> bool:
+    return minutes(time_start) < minutes("13:00") and minutes(time_end) > minutes("12:00")
+
+
 def _validate_time_end(text: str, start: str) -> bool | str:
     valid = _validate_time(text)
     if valid is not True:
@@ -223,6 +227,8 @@ def add_works(course_id: int) -> None:
     )
     if entry["hours"] % 1 != 0:
         summary += f"  Warning: {entry['hours']:g} hrs is not a whole number of hours.\n"
+    if overlaps_lunch(entry["time_start"], entry["time_end"]):
+        summary += "  Warning: overlaps lunch break (12:00-13:00).\n"
 
     confirmed = questionary.confirm(
         "Submit this work? (Y/n)", instruction=summary, erase_when_done=True

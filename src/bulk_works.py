@@ -9,7 +9,7 @@ import questionary
 from rich.console import Console
 
 from src.exceptions import UserCancelled
-from src.works import minutes, parse_time, submit_work, validate_date, validate_work
+from src.works import minutes, overlaps_lunch, parse_time, submit_work, validate_date, validate_work
 
 console = Console()
 
@@ -145,6 +145,8 @@ def add_bulk_works(course_id: int) -> None:
         line = f"{e['date']} | {e['time_start']} - {e['time_end']} ({e['hours']:g} hrs) | {e['work']}"
         if e["hours"] % 1 != 0:
             line += "  [yellow][!] not a whole number of hours[/yellow]"
+        if overlaps_lunch(e["time_start"], e["time_end"]):
+            line += "  [yellow][!] overlaps lunch break (12:00-13:00)[/yellow]"
         console.print(line)
     total_hours = sum(e["hours"] for e in entries)
     console.print(f"\n[bold]Total: {total_hours:g} hrs across {len(entries)} work(s)[/bold]\n")
