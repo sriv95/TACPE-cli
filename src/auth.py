@@ -92,7 +92,6 @@ def login_prompt() -> str:
     if not test_cookie(cookie):
         raise RuntimeError("Login failed the auth check after login.")
     save_cookie(cookie)
-    console.print(f"[green]Saved[/green] to {COOKIE_FILE}")
     return cookie
 
 
