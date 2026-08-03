@@ -194,13 +194,15 @@ def add_works() -> None:
     if entry["hours"] % 1 != 0:
         console.print(f"[yellow]Warning: {entry['hours']:g} hrs is not a whole number of hours.[/yellow]")
 
-    confirmed = questionary.confirm("Submit this work?").ask()
+    confirmed = questionary.confirm("Submit this work?", erase_when_done=True).ask()
     if confirmed is None:
         raise UserCancelled
     if not confirmed:
-        console.print("[yellow]Cancelled.[/yellow]")
         return
 
-    console.print("[yellow]Not implemented yet — submission API not wired up.[/yellow]")
+    console.print(
+        f"[bold green]Added:[/bold green] {entry['date']} | {entry['time_start']} - {entry['time_end']} "
+        f"({entry['hours']:g} hrs) | {entry['work']}"
+    )
 
 
