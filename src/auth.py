@@ -38,22 +38,26 @@ def login_manual() -> str:
 def login_browser() -> str:
     from playwright.sync_api import sync_playwright
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
-        context = browser.new_context()
-        page = context.new_page()
-        console.print("Opening browser")
-        page.goto(BASE_URL)
-        # only the post-login OAuth callback confirms login finished — the home page
-        # URL itself would otherwise match a broader "back on this site" pattern instantly
-        page.wait_for_url(f"{BASE_URL}/cmuEntraIDCallback**", timeout=0)
-        # give the callback route a moment to finish setting cookies
-        page.wait_for_load_state("networkidle")
-        console.print("[green]Login Successful[/green]")
+    with console.status("Opening browser") as status:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=False)
+            context = browser.new_context()
+            page = context.new_page()
+            page.goto(BASE_URL)
+            # only the post-login OAuth callback confirms login finished — the home page
+            # URL itself would otherwise match a broader "back on this site" pattern instantly
+            page.wait_for_url(f"{BASE_URL}/cmuEntraIDCallback**", timeout=0)
+            # give the callback route a moment to finish setting cookies
+            page.wait_for_load_state("networkidle")
+            status.update("[green]Login Successful[/green]")
 
-        cookies = context.cookies(BASE_URL)
-        cookie_header = "; ".join(f"{c['name']}={c['value']}" for c in cookies)
-        browser.close()
+            cookies = context.cookies(BASE_URL)
+            cookie_header = "; ".join(f"{c['name']}={c['value']}" for c in cookies)
+            browser.close()
+
+    # rich's status spinner is transient — it clears itself on exit, so print
+    # the final message again to leave it on screen
+    console.print("[green]Login Successful[/green]")
 
     if not cookie_header:
         raise RuntimeError("No cookies captured — login may not have completed.")
