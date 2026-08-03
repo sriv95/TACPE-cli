@@ -51,6 +51,9 @@ def login_browser() -> str:
             context = browser.new_context()
             page = context.new_page()
             page.goto(BASE_URL)
+            login_link = page.locator("a[href*='login.microsoftonline.com']")
+            if login_link.count() > 0:
+                page.goto(login_link.first.get_attribute("href"))
             # only the post-login OAuth callback confirms login finished — the home page
             # URL itself would otherwise match a broader "back on this site" pattern instantly
             page.wait_for_url(f"{BASE_URL}/cmuEntraIDCallback**", timeout=0)
