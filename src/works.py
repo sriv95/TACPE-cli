@@ -21,7 +21,6 @@ EXIT_APP = object()
 BANGKOK = ZoneInfo("Asia/Bangkok")
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
 def fetch_works(course_id: int) -> list[dict]:
@@ -91,8 +90,29 @@ def _validate_date(text: str) -> bool | str:
     return True if DATE_RE.match(text) else "Format: YYYY-MM-DD"
 
 
+def _parse_time(text: str) -> str | None:
+    text = text.strip()
+    if ":" in text:
+        m = re.match(r"^([01]?\d|2[0-3]):([0-5]\d)$", text)
+        return f"{int(m.group(1)):02d}:{m.group(2)}" if m else None
+    if "." in text:
+        try:
+            value = float(text)
+        except ValueError:
+            return None
+        hour, minute = int(value), round((value - int(value)) * 60)
+        return f"{hour:02d}:{minute:02d}" if 0 <= hour <= 23 and 0 <= minute < 60 else None
+    if text.isdigit():
+        text = text.zfill(4) if len(text) > 2 else text.zfill(2) + "00"
+        if len(text) != 4:
+            return None
+        hour, minute = int(text[:2]), int(text[2:])
+        return f"{hour:02d}:{minute:02d}" if 0 <= hour <= 23 and 0 <= minute <= 59 else None
+    return None
+
+
 def _validate_time(text: str) -> bool | str:
-    return True if TIME_RE.match(text) else "Format: HH:MM (24h)"
+    return True if _parse_time(text) else "Format: HH:MM, HHMM, H, or H.mm (e.g. 17:30, 1730, 17, 17.5)"
 
 
 def _prompt_work_entry() -> dict:
@@ -121,6 +141,7 @@ def _prompt_work_entry() -> dict:
     ).ask()
     if time_start is None:
         raise UserCancelled
+    time_start = _parse_time(time_start)
 
     time_end = questionary.text(
         "Add a Work - Enter End Time (HH:MM):",
@@ -130,6 +151,7 @@ def _prompt_work_entry() -> dict:
     ).ask()
     if time_end is None:
         raise UserCancelled
+    time_end = _parse_time(time_end)
 
     start_minutes = int(time_start[:2]) * 60 + int(time_start[3:])
     end_minutes = int(time_end[:2]) * 60 + int(time_end[3:])
