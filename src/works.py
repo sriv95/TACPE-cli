@@ -126,6 +126,20 @@ def _validate_time(text: str) -> bool | str:
     )
 
 
+def _minutes(time_str: str) -> int:
+    hour, minute = time_str.split(":")
+    return int(hour) * 60 + int(minute)
+
+
+def _validate_time_end(text: str, start: str) -> bool | str:
+    valid = _validate_time(text)
+    if valid is not True:
+        return valid
+    if _minutes(_parse_time(text)) - _minutes(start) < 60:
+        return "End time must be at least 1 hour after start time"
+    return True
+
+
 def _prompt_work_entry() -> dict:
     date_str = questionary.text(
         "Add a Work - Enter Date (YYYY-MM-DD):",
@@ -158,7 +172,7 @@ def _prompt_work_entry() -> dict:
     time_end = questionary.text(
         "Add a Work - Enter End Time (HH:MM):",
         instruction=f"\n  Date: {date_str}\n  Work: {work}\n  Start: {time_start}\n",
-        validate=_validate_time,
+        validate=lambda text: _validate_time_end(text, time_start),
         erase_when_done=True,
     ).ask()
     if time_end is None:
