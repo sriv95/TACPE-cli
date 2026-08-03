@@ -1,6 +1,7 @@
 """Fetch and browse work-report entries for a selected course."""
 
 import json
+import sys
 
 import questionary
 from rich.console import Console
@@ -12,6 +13,7 @@ from src.request import request
 console = Console()
 
 ADD_WORKS = object()
+EXIT_APP = object()
 
 
 def fetch_works(course_id: int) -> list[dict]:
@@ -28,12 +30,17 @@ def view_works(course_id: int) -> None:
     ]
     choices.append(questionary.Separator())
     choices.append(questionary.Choice("Add works", value=ADD_WORKS))
+    choices.append(questionary.Choice("Exit App", value=EXIT_APP))
 
-    selected = questionary.select("Works:", choices=choices, erase_when_done=True).ask()
+    selected = questionary.select(
+        "Works:", choices=choices, default=choices[-2], erase_when_done=True
+    ).ask()
     if selected is None:
         raise UserCancelled
     if selected is ADD_WORKS:
         add_works_menu()
+    elif selected is EXIT_APP:
+        sys.exit(0)
     else:
         console.print("[yellow]Not implemented yet.[/yellow]")
 
