@@ -173,24 +173,12 @@ def _prompt_work_entry() -> dict:
 
 
 def add_works() -> None:
-    entries = []
-    while True:
-        entries.append(_prompt_work_entry())
-
-        add_more = questionary.confirm("Add another work?", default=False).ask()
-        if add_more is None:
-            raise UserCancelled
-        if not add_more:
-            break
+    entry = _prompt_work_entry()
 
     console.print("\n[bold]Summary[/bold]")
-    total_hours = 0.0
-    for e in entries:
-        console.print(f"{e['date']} | {e['time_start']} - {e['time_end']} ({e['hours']:g} hrs) | {e['work']}")
-        total_hours += e["hours"]
-    console.print(f"\n[bold]Total: {total_hours:g} hrs across {len(entries)} work(s)[/bold]\n")
+    console.print(f"{entry['date']} | {entry['time_start']} - {entry['time_end']} ({entry['hours']:g} hrs) | {entry['work']}")
 
-    confirmed = questionary.confirm("Submit these works?").ask()
+    confirmed = questionary.confirm("Submit this work?").ask()
     if confirmed is None:
         raise UserCancelled
     if not confirmed:
