@@ -90,6 +90,10 @@ def _validate_date(text: str) -> bool | str:
     return True if DATE_RE.match(text) else "Format: YYYY-MM-DD"
 
 
+def _validate_work(text: str) -> bool | str:
+    return True if text.strip() else "Work must not be empty"
+
+
 def _parse_time(text: str) -> str | None:
     text = text.strip()
     hour = minute = None
@@ -133,12 +137,13 @@ def _prompt_work_entry() -> dict:
         raise UserCancelled
 
     work = questionary.text(
-        "Add a Work - Enter Work:", instruction=f"\n  Date: {date_str}\n", erase_when_done=True
+        "Add a Work - Enter Work:",
+        instruction=f"\n  Date: {date_str}\n",
+        validate=_validate_work,
+        erase_when_done=True,
     ).ask()
     if work is None:
         raise UserCancelled
-    if not work:
-        raise RuntimeError("Work description required.")
 
     time_start = questionary.text(
         "Add a Work - Enter Start Time (HH:MM):",
