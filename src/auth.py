@@ -1,6 +1,5 @@
 """Cookie acquisition for the CPE TA site (Microsoft Entra ID login, no plain form)."""
 
-import json
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -66,19 +65,19 @@ def login_browser() -> str:
 
 def test_cookie(cookie: str) -> bool:
     req = urllib.request.Request(TEST_URL, headers={"Cookie": cookie})
-    try:
-        with urllib.request.urlopen(req) as resp:
-            body = resp.read().decode()
-            console.print(f"[bold green]OK[/bold green] {resp.status} {TEST_URL}")
-            try:
-                console.print_json(json.dumps(json.loads(body)))
-            except json.JSONDecodeError:
-                console.print(body)
-            return True
-    except urllib.error.HTTPError as e:
-        console.print(f"[bold red]FAIL[/bold red] {e.code} {TEST_URL}")
-        console.print(e.read().decode(errors="replace"))
-        return False
+    with console.status("Logging In") as status:
+        try:
+            with urllib.request.urlopen(req):
+                status.update("[bold green]Login Successful[/bold green]")
+                success = True
+        except urllib.error.HTTPError:
+            success = False
+
+    # status spinner is transient — reprint on success so it stays visible;
+    # on failure just let it vanish, the caller decides what to do next
+    if success:
+        console.print("[bold green]Login Successful[/bold green]")
+    return success
 
 
 def login_prompt() -> str:
