@@ -102,7 +102,8 @@ def _validate_row(row: dict, line: int) -> dict | None:
         console.print(f"[red]Row {line}: {'; '.join(errors)}[/red]")
         return None
 
-    return {"date": row["date"], "work": row["work"], "time_start": start, "time_end": end}
+    hours = (minutes(end) - minutes(start)) / 60
+    return {"date": row["date"], "work": row["work"], "time_start": start, "time_end": end, "hours": hours}
 
 
 def _submit_with_retry(course_id: int, entry: dict) -> None:
@@ -136,9 +137,13 @@ def add_bulk_works(course_id: int) -> None:
         console.print("[yellow]No valid rows to submit.[/yellow]")
         return
 
-    summary = "\n" + "\n".join(
-        f"  {e['date']} | {e['time_start']} - {e['time_end']} | {e['work']}" for e in entries
-    ) + "\n"
+    lines = []
+    for e in entries:
+        line = f"  {e['date']} | {e['time_start']} - {e['time_end']} ({e['hours']:g} hrs) | {e['work']}"
+        if e["hours"] % 1 != 0:
+            line += "  [!] not a whole number of hours"
+        lines.append(line)
+    summary = "\n" + "\n".join(lines) + "\n"
 
     confirmed = questionary.confirm(
         f"Submit {len(entries)} valid work(s)?", instruction=summary, erase_when_done=True
