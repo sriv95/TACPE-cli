@@ -136,7 +136,13 @@ def add_bulk_works(course_id: int) -> None:
         console.print("[yellow]No valid rows to submit.[/yellow]")
         return
 
-    confirmed = questionary.confirm(f"Submit {len(entries)} valid work(s)?").ask()
+    summary = "\n" + "\n".join(
+        f"  {e['date']} | {e['time_start']} - {e['time_end']} | {e['work']}" for e in entries
+    ) + "\n"
+
+    confirmed = questionary.confirm(
+        f"Submit {len(entries)} valid work(s)?", instruction=summary, erase_when_done=True
+    ).ask()
     if confirmed is None:
         raise UserCancelled
     if not confirmed:
