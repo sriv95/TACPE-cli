@@ -143,6 +143,8 @@ def add_bulk_works(course_id: int) -> None:
         if e["hours"] % 1 != 0:
             line += "  [!] not a whole number of hours"
         lines.append(line)
+    total_hours = sum(e["hours"] for e in entries)
+    lines.append(f"  Total: {total_hours:g} hrs across {len(entries)} work(s)")
     summary = "\n" + "\n".join(lines) + "\n"
 
     confirmed = questionary.confirm(
