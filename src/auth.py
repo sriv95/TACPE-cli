@@ -38,6 +38,32 @@ def login_manual() -> str:
     return cookie
 
 
+def login_browser() -> str:
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False)
+        context = browser.new_context()
+        page = context.new_page()
+        page.goto(BASE_URL)
+        console.print("Complete the CMU Account login (incl. MFA) in the opened browser window.")
+        # only the post-login OAuth callback confirms login finished — the home page
+        # URL itself would otherwise match a broader "back on this site" pattern instantly
+        page.wait_for_url(f"{BASE_URL}/cmuEntraIDCallback**", timeout=0)
+        # give the callback route a moment to finish setting cookies
+        page.wait_for_load_state("networkidle")
+
+        cookies = context.cookies(BASE_URL)
+        cookie_header = "; ".join(f"{c['name']}={c['value']}" for c in cookies)
+        browser.close()
+
+    if not cookie_header:
+        raise RuntimeError("No cookies captured — login may not have completed.")
+    save_cookie(cookie_header)
+    console.print(f"[green]Saved[/green] to {COOKIE_FILE}")
+    return cookie_header
+
+
 def test_cookie(cookie: str) -> bool:
     req = urllib.request.Request(TEST_URL, headers={"Cookie": cookie})
     try:
@@ -58,12 +84,20 @@ def test_cookie(cookie: str) -> bool:
 def main() -> None:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("login", help="Acquire and save the auth cookie")
+    login = sub.add_parser("login", help="Acquire and save the auth cookie")
+    login.add_argument("--method", choices=["manual", "browser"])
     sub.add_parser("test", help="Test the saved cookie against the API")
     args = parser.parse_args()
 
     if args.command == "login":
-        cookie = login_manual()
+        method = args.method or questionary.select(
+            "How do you want to get the cookie?",
+            choices=[
+                questionary.Choice("Browser login (opens Chromium, handles MFA)", value="browser"),
+                questionary.Choice("Manual paste (copy Cookie header from DevTools)", value="manual"),
+            ],
+        ).ask()
+        cookie = (login_browser if method == "browser" else login_manual)()
         test_cookie(cookie)
     elif args.command == "test":
         test_cookie(load_cookie())
