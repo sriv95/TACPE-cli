@@ -33,8 +33,6 @@ def login_manual() -> str:
     cookie = questionary.text("Paste Cookie header:").ask()
     if not cookie:
         raise RuntimeError("No cookie entered.")
-    save_cookie(cookie)
-    console.print(f"[green]Saved[/green] to {COOKIE_FILE}")
     return cookie
 
 
@@ -59,8 +57,6 @@ def login_browser() -> str:
 
     if not cookie_header:
         raise RuntimeError("No cookies captured — login may not have completed.")
-    save_cookie(cookie_header)
-    console.print(f"[green]Saved[/green] to {COOKIE_FILE}")
     return cookie_header
 
 
@@ -98,7 +94,11 @@ def main() -> None:
             ],
         ).ask()
         cookie = (login_browser if method == "browser" else login_manual)()
-        test_cookie(cookie)
+        if test_cookie(cookie):
+            save_cookie(cookie)
+            console.print(f"[green]Saved[/green] to {COOKIE_FILE}")
+        else:
+            console.print("[red]Not saved[/red] — cookie failed the auth check.")
     elif args.command == "test":
         test_cookie(load_cookie())
 
