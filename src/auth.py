@@ -7,6 +7,8 @@ from pathlib import Path
 import questionary
 from rich.console import Console
 
+from src.exceptions import UserCancelled
+
 BASE_URL = "https://ta.cpe.eng.cmu.ac.th"
 TEST_URL = f"{BASE_URL}/api/user/getWithSession"
 COOKIE_FILE = Path(__file__).resolve().parent.parent / ".cookie"
@@ -37,6 +39,8 @@ def login_manual() -> str:
         instruction=MANUAL_INSTRUCTION,
         erase_when_done=True,
     ).ask()
+    if cookie is None:
+        raise UserCancelled
     if not cookie:
         raise RuntimeError("No cookie entered.")
     return cookie
@@ -94,6 +98,8 @@ def login_prompt() -> str:
             questionary.Choice("2. Manual paste Cookie", value="manual"),
         ],
     ).ask()
+    if method is None:
+        raise UserCancelled
     cookie = (login_browser if method == "browser" else login_manual)()
     if not test_cookie(cookie):
         raise RuntimeError("Login failed the auth check after login.")
