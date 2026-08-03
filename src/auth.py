@@ -28,7 +28,7 @@ def login_manual() -> str:
     console.print("1. Log into [bold]https://ta.cpe.eng.cmu.ac.th[/bold] in your browser.")
     console.print("2. Open DevTools -> Network tab, reload the page.")
     console.print("3. Click any request to ta.cpe.eng.cmu.ac.th -> Headers -> copy the [bold]Cookie[/bold] value.")
-    cookie = questionary.text("Paste Cookie header:").ask()
+    cookie = questionary.text("Paste Cookie header:", erase_when_done=True).ask()
     if not cookie:
         raise RuntimeError("No cookie entered.")
     return cookie
