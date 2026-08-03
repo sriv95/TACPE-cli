@@ -48,15 +48,10 @@ def login_browser() -> str:
             page.wait_for_url(f"{BASE_URL}/cmuEntraIDCallback**", timeout=0)
             # give the callback route a moment to finish setting cookies
             page.wait_for_load_state("networkidle")
-            status.update("[green]Login Successful[/green]")
 
             cookies = context.cookies(BASE_URL)
             cookie_header = "; ".join(f"{c['name']}={c['value']}" for c in cookies)
             browser.close()
-
-    # rich's status spinner is transient — it clears itself on exit, so print
-    # the final message again to leave it on screen
-    console.print("[green]Login Successful[/green]")
 
     if not cookie_header:
         raise RuntimeError("No cookies captured — login may not have completed.")
