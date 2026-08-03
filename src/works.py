@@ -211,12 +211,16 @@ def _prompt_work_entry() -> dict:
 def add_works(course_id: int) -> None:
     entry = _prompt_work_entry()
 
-    console.print("\n[bold]Summary[/bold]")
-    console.print(f"{entry['date']} | {entry['time_start']} - {entry['time_end']} ({entry['hours']:g} hrs) | {entry['work']}")
+    summary = (
+        f"\n{entry['date']} | {entry['time_start']} - {entry['time_end']} "
+        f"({entry['hours']:g} hrs) | {entry['work']}\n"
+    )
     if entry["hours"] % 1 != 0:
-        console.print(f"[yellow]Warning: {entry['hours']:g} hrs is not a whole number of hours.[/yellow]")
+        summary += f"  Warning: {entry['hours']:g} hrs is not a whole number of hours.\n"
 
-    confirmed = questionary.confirm("Submit this work?", erase_when_done=True).ask()
+    confirmed = questionary.confirm(
+        "Submit this work? (Y/n)", instruction=summary, erase_when_done=True
+    ).ask()
     if confirmed is None:
         raise UserCancelled
     if not confirmed:
