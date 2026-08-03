@@ -16,10 +16,16 @@ console = Console()
 
 
 def save_cookie(cookie: str) -> None:
+    """Persist the cookie to disk.
+    Input: cookie (str) - raw Cookie header string.
+    """
     COOKIE_FILE.write_text(cookie.strip() + "\n")
 
 
 def load_cookie() -> str:
+    """Read the previously saved cookie.
+    Output: (str) raw Cookie header string; raises if none saved.
+    """
     if not COOKIE_FILE.exists():
         raise FileNotFoundError(f"No cookie saved. Run `python -m src.auth login` first ({COOKIE_FILE}).")
     return COOKIE_FILE.read_text().strip()
@@ -33,6 +39,9 @@ MANUAL_INSTRUCTION = (
 
 
 def login_manual() -> str:
+    """Prompt user to paste a Cookie header copied from DevTools.
+    Output: (str) raw Cookie header string.
+    """
     cookie = questionary.text(
         "Paste Cookie header:",
         instruction=MANUAL_INSTRUCTION,
@@ -46,6 +55,9 @@ def login_manual() -> str:
 
 
 def login_browser() -> str:
+    """Open a real browser for CMU Entra ID login and capture the session cookies.
+    Output: (str) assembled Cookie header string.
+    """
     from playwright.sync_api import sync_playwright
 
     with console.status("Opening browser") as status:
@@ -73,6 +85,10 @@ def login_browser() -> str:
 
 
 def test_cookie(cookie: str) -> bool:
+    """Check whether a cookie is still authenticated.
+    Input: cookie (str) - raw Cookie header string.
+    Output: (bool) True if valid.
+    """
     req = urllib.request.Request(TEST_URL, headers={"Cookie": cookie})
     with console.status("Logging In") as status:
         try:
@@ -90,6 +106,9 @@ def test_cookie(cookie: str) -> bool:
 
 
 def login_prompt() -> str:
+    """Ask user to pick browser or manual login, run it, verify and save the result.
+    Output: (str) validated Cookie header string.
+    """
     method = questionary.select(
         "How do you want to login?",
         choices=[
@@ -107,7 +126,9 @@ def login_prompt() -> str:
 
 
 def login() -> str:
-    """Return a working cookie: try the saved one first, else prompt login."""
+    """Return a working cookie: try the saved one first, else prompt login.
+    Output: (str) valid Cookie header string; also sets it as the global request cookie.
+    """
     try:
         cookie = load_cookie()
     except FileNotFoundError:

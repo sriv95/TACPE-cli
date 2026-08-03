@@ -27,6 +27,9 @@ CSV_INSTRUCTION = (
 
 
 def _browse_file() -> str | None:
+    """Open native macOS file picker via AppleScript.
+    Output: (str | None) chosen file path, or None if cancelled.
+    """
     script = 'POSIX path of (choose file with prompt "Select CSV file" of type {"csv"})'
     result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
     if result.returncode != 0:
@@ -35,6 +38,9 @@ def _browse_file() -> str | None:
 
 
 def select_csv_path() -> str | None:
+    """Ask how to locate the CSV (browse/type path/back).
+    Output: (str | None) file path, or None if back.
+    """
     method = questionary.select(
         "Add bulk works - CSV file:",
         choices=[
@@ -69,6 +75,10 @@ def select_csv_path() -> str | None:
 
 
 def _read_rows(path: str) -> list[dict] | None:
+    """Read CSV rows, checking required columns exist.
+    Input: path (str).
+    Output: (list[dict] | None) row dicts, or None if columns missing.
+    """
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         missing = [c for c in REQUIRED_COLUMNS if c not in (reader.fieldnames or [])]
@@ -79,6 +89,10 @@ def _read_rows(path: str) -> list[dict] | None:
 
 
 def _validate_row(row: dict, line: int) -> dict | None:
+    """Validate one CSV row with the same rules as single-entry add.
+    Input: row (dict), line (int) - 1-indexed CSV line number (for error messages).
+    Output: (dict | None) entry with hours, or None if blank/invalid (errors printed for invalid rows).
+    """
     if not any((row.get(col) or "").strip() for col in REQUIRED_COLUMNS):
         return None
 
@@ -110,6 +124,9 @@ def _validate_row(row: dict, line: int) -> dict | None:
 
 
 def _submit_with_retry(course_id: int, entry: dict) -> None:
+    """Submit one entry, retrying with backoff (1s/5s/10s/30s, capped) on network error until it succeeds.
+    Input: course_id (int), entry (dict).
+    """
     wait_index = 0
     while True:
         try:
@@ -123,6 +140,9 @@ def _submit_with_retry(course_id: int, entry: dict) -> None:
 
 
 def add_bulk_works(course_id: int) -> None:
+    """Full bulk-import flow: pick CSV, validate rows, show summary, confirm, submit each.
+    Input: course_id (int).
+    """
     path = select_csv_path()
     if path is None:
         return

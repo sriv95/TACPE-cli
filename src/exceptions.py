@@ -1,2 +1,2 @@
 class UserCancelled(Exception):
-    pass
+    """Raised when the user cancels a prompt."""

@@ -26,16 +26,27 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def fetch_works(course_id: int) -> list[dict]:
+    """Fetch existing work entries for a course.
+    Input: course_id (int).
+    Output: (list[dict]) work dicts.
+    """
     data = json.loads(request(f"{WORK_REPORT_URL}?courseId={course_id}"))
     return data["workReport"]["works"]
 
 
 def _to_utc_date(date_str: str) -> str:
+    """Convert a Bangkok-local date into the API's UTC ISO format.
+    Input: date_str (str) - YYYY-MM-DD (Bangkok).
+    Output: (str) ISO UTC timestamp.
+    """
     local_midnight = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=BANGKOK)
     return local_midnight.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
 def submit_work(course_id: int, entry: dict) -> None:
+    """POST a work entry to the API.
+    Input: course_id (int), entry (dict) - date/work/time_start/time_end.
+    """
     payload = {
         "courseId": course_id,
         "work": entry["work"],
@@ -51,11 +62,19 @@ def submit_work(course_id: int, entry: dict) -> None:
 
 
 def format_date(date_str: str) -> str:
+    """Convert an API UTC date to a Bangkok-local display date.
+    Input: date_str (str) - ISO UTC timestamp.
+    Output: (str) YYYY-MM-DD.
+    """
     dt = datetime.fromisoformat(date_str.replace("Z", "+00:00")).astimezone(BANGKOK)
     return dt.strftime("%Y-%m-%d")
 
 
 def format_time(time_str: str) -> str:
+    """Render API time range for display.
+    Input: time_str (str) - HHMM-HHMM.
+    Output: (str) 'HH:MM - HH:MM (N hrs)'.
+    """
     start, end = time_str.split("-")
     start_min = int(start[:2]) * 60 + int(start[2:])
     end_min = int(end[:2]) * 60 + int(end[2:])
@@ -64,6 +83,9 @@ def format_time(time_str: str) -> str:
 
 
 def view_works(course_id: int, course_label: str) -> None:
+    """Main works loop: list entries, offer Add works / Exit.
+    Input: course_id (int), course_label (str) - display label.
+    """
     while True:
         works = fetch_works(course_id)
 
@@ -95,6 +117,9 @@ def view_works(course_id: int, course_label: str) -> None:
 
 
 def add_works_menu(course_id: int) -> None:
+    """Prompt user to choose single/bulk add, or go back.
+    Input: course_id (int).
+    """
     choice = questionary.select(
         "Add works:",
         choices=[
@@ -115,14 +140,26 @@ def add_works_menu(course_id: int) -> None:
 
 
 def validate_date(text: str) -> bool | str:
+    """Check date format for questionary.
+    Input: text (str) - raw input.
+    Output: (bool | str) True, or an error message.
+    """
     return True if DATE_RE.match(text) else "Format: YYYY-MM-DD"
 
 
 def validate_work(text: str) -> bool | str:
+    """Check task text is non-empty for questionary.
+    Input: text (str) - raw input.
+    Output: (bool | str) True, or an error message.
+    """
     return True if text.strip() else "Task must not be empty"
 
 
 def parse_time(text: str) -> str | None:
+    """Parse flexible time input (HH:MM, HHMM, H, H.mm) into normalized HH:MM.
+    Input: text (str) - raw input.
+    Output: (str | None) 'HH:MM', or None if invalid or minutes not 00/30.
+    """
     text = text.strip()
     hour = minute = None
     if ":" in text:
@@ -147,6 +184,10 @@ def parse_time(text: str) -> str | None:
 
 
 def _validate_time(text: str) -> bool | str:
+    """Check time text parses for questionary.
+    Input: text (str) - raw input.
+    Output: (bool | str) True, or an error message.
+    """
     return (
         True
         if parse_time(text)
@@ -155,15 +196,27 @@ def _validate_time(text: str) -> bool | str:
 
 
 def minutes(time_str: str) -> int:
+    """Convert HH:MM to minutes since midnight.
+    Input: time_str (str) - 'HH:MM'.
+    Output: (int) minutes.
+    """
     hour, minute = time_str.split(":")
     return int(hour) * 60 + int(minute)
 
 
 def overlaps_lunch(time_start: str, time_end: str) -> bool:
+    """Check if a time range overlaps the 12:00-13:00 lunch break.
+    Input: time_start (str), time_end (str) - 'HH:MM'.
+    Output: (bool).
+    """
     return minutes(time_start) < minutes("13:00") and minutes(time_end) > minutes("12:00")
 
 
 def _validate_time_end(text: str, start: str) -> bool | str:
+    """Check end time is valid and >=1hr after start, for questionary.
+    Input: text (str) - raw end-time input, start (str) - parsed 'HH:MM'.
+    Output: (bool | str) True, or an error message.
+    """
     valid = _validate_time(text)
     if valid is not True:
         return valid
@@ -173,6 +226,9 @@ def _validate_time_end(text: str, start: str) -> bool | str:
 
 
 def _prompt_work_entry() -> dict:
+    """Prompt user through date/task/start/end time for one entry.
+    Output: (dict) entry with hours.
+    """
     date_str = questionary.text(
         "Add a Work - Enter Date (YYYY-MM-DD):",
         default=datetime.now(BANGKOK).strftime("%Y-%m-%d"),
@@ -219,6 +275,9 @@ def _prompt_work_entry() -> dict:
 
 
 def add_works(course_id: int) -> None:
+    """Collect one work entry, show summary/warnings, confirm, and submit.
+    Input: course_id (int).
+    """
     entry = _prompt_work_entry()
 
     summary = (

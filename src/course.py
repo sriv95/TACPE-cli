@@ -13,17 +13,26 @@ console = Console()
 
 
 def fetch_reg_times() -> list[dict]:
+    """Fetch all academic year/term entries, newest first.
+    Output: (list[dict]) {year, term, inUse} dicts.
+    """
     data = json.loads(request(REG_TIME_URL))
     return sorted(data["regTimes"], key=lambda r: (r["year"], r["term"]), reverse=True)
 
 
 def current_reg_time() -> tuple[int, int]:
+    """Get the active academic term.
+    Output: (tuple[int, int]) (year, term).
+    """
     reg_times = fetch_reg_times()
     current = next((r for r in reg_times if r["inUse"]), reg_times[0])
     return current["year"], current["term"]
 
 
 def select_reg_time() -> tuple[int, int]:
+    """Prompt user to pick a year/term, defaulting to the active one.
+    Output: (tuple[int, int]) (year, term).
+    """
     reg_times = fetch_reg_times()
 
     choices = [
@@ -45,6 +54,10 @@ def select_reg_time() -> tuple[int, int]:
 
 
 def list_courses(reg_year: int, reg_term: int) -> list[dict]:
+    """Fetch courses the user TAs for in a given term.
+    Input: reg_year (int), reg_term (int).
+    Output: (list[dict]) TA/course dicts.
+    """
     url = f"{TA_LIST_URL}?regYear={reg_year}&regTerm={reg_term}"
     data = json.loads(request(url))
     return data["tas"]
@@ -54,6 +67,9 @@ CHANGE_REG_TIME = object()
 
 
 def select_course() -> tuple[int, str]:
+    """Prompt user to pick a course/section, with an option to change term.
+    Output: (tuple[int, str]) (courseId, display label).
+    """
     reg_year, reg_term = current_reg_time()
 
     while True:

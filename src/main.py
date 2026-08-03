@@ -7,6 +7,7 @@ from src.works import view_works
 
 
 def main():
+    """Run the full CLI: login, select course, enter works menu."""
     try:
         login()
         course_id, course_label = select_course()
