@@ -83,6 +83,7 @@ def select_course() -> tuple[int, str]:
             )
             for ta in courses
         ]
+        choices.append(questionary.Separator())
         choices.append(
             questionary.Choice(f"Change academic term/year", value=CHANGE_REG_TIME)
         )
