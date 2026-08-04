@@ -1,0 +1,30 @@
+name: Tag version
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - uv.lock
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        run: |
+          VERSION=$(grep -m1 '^version = ' pyproject.toml | sed -E 's/version = "(.*)"/\1/')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if git ls-remote --tags origin | grep -q "refs/tags/v$VERSION\$"; then
+            echo "Tag v$VERSION already exists, skipping."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
