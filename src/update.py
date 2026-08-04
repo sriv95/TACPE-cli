@@ -37,7 +37,7 @@ def _installed_via() -> str:
 def check_update() -> None:
     """Prompt to update if a newer version is published; runs the update and exits if accepted."""
     latest = _latest_version()
-    current = version("tacpe-csv-to-works")
+    current = version("tacpe")
     if not latest or latest == current:
         return
 
@@ -47,7 +47,7 @@ def check_update() -> None:
         return
 
     manager = _installed_via()
-    cmd = [manager] + (["tool", "upgrade"] if manager == "uv" else ["upgrade"]) + ["tacpe-csv-to-works"]
+    cmd = [manager] + (["tool", "upgrade"] if manager == "uv" else ["upgrade"]) + ["tacpe"]
 
     if sys.platform == "win32":
         # Windows locks the running exe — it can't be overwritten by this same process.
