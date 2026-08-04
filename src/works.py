@@ -18,6 +18,7 @@ UTC = ZoneInfo("UTC")
 console = Console()
 
 ADD_WORKS = object()
+MORE_OPTIONS = object()
 EXIT_APP = object()
 
 BANGKOK = ZoneInfo("Asia/Bangkok")
@@ -115,12 +116,13 @@ def view_works(course_id: int, course_label: str) -> None:
         ]
         choices.append(questionary.Separator())
         choices.append(questionary.Choice("Add works", value=ADD_WORKS))
+        choices.append(questionary.Choice("More Options", value=MORE_OPTIONS))
         choices.append(questionary.Choice("Exit App", value=EXIT_APP))
 
         selected = questionary.select(
             "Works:",
             choices=choices,
-            default=choices[-2],
+            default=choices[-3],
             instruction=f"\n  Course: {course_label}\n",
             erase_when_done=True,
         ).ask()
@@ -128,11 +130,76 @@ def view_works(course_id: int, course_label: str) -> None:
             raise UserCancelled
         if selected is ADD_WORKS:
             add_works_menu(course_id)
+        elif selected is MORE_OPTIONS:
+            more_options_menu(course_id, works)
         elif selected is EXIT_APP:
             sys.exit(0)
         else:
             work = next(w for w in works if w["_id"] == selected)
             work_entry_menu(course_id, work)
+
+
+def more_options_menu(course_id: int, works: list[dict]) -> None:
+    """Prompt user for extra actions: multi-delete or back.
+    Input: course_id (int), works (list[dict]) - current work entries.
+    """
+    choice = questionary.select(
+        "More Options:",
+        choices=[
+            questionary.Choice("Delete multiple", value="delete_multiple"),
+            questionary.Choice("Back", value="back"),
+        ],
+        erase_when_done=True,
+    ).ask()
+    if choice is None:
+        raise UserCancelled
+    if choice == "delete_multiple":
+        delete_multiple_works(course_id, works)
+
+
+def delete_multiple_works(course_id: int, works: list[dict]) -> None:
+    """Checkbox-select entries and delete each, reporting per-item failures.
+    Input: course_id (int), works (list[dict]) - current work entries.
+    """
+    if not works:
+        console.print("[yellow]No works to delete.[/yellow]")
+        return
+
+    selected = questionary.checkbox(
+        "Select works to delete (space to toggle, enter to confirm):",
+        choices=[
+            questionary.Choice(
+                f"{format_date(w['date'])} | {format_time(w['time'])} | {w['work']}", value=w["_id"]
+            )
+            for w in works
+        ],
+        erase_when_done=True,
+    ).ask()
+    if selected is None:
+        raise UserCancelled
+    if not selected:
+        return
+
+    confirmed = questionary.confirm(
+        f"Delete {len(selected)} work(s)? (y/N)", default=False, erase_when_done=True
+    ).ask()
+    if confirmed is None:
+        raise UserCancelled
+    if not confirmed:
+        return
+
+    by_id = {w["_id"]: w for w in works}
+    deleted, failed = 0, 0
+    for work_id in selected:
+        try:
+            delete_work(course_id, work_id)
+        except Exception as e:
+            failed += 1
+            console.print(f"[red]Failed to delete {by_id[work_id]['work']}: {e}[/red]")
+            continue
+        deleted += 1
+
+    console.print(f"[bold green]Deleted {deleted} work(s).[/bold green]" + (f" [red]{failed} failed.[/red]" if failed else ""))
 
 
 def work_entry_menu(course_id: int, work: dict) -> None:
