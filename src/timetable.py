@@ -128,26 +128,28 @@ def timetable_gate(proceed_label: str = "Next") -> list[dict]:
     Input: proceed_label (str) - text for the proceed choice.
     Output: (list[dict]) the timetable to use (re-read after any edits).
     """
-    entries = load_timetable()
-    if entries:
-        console.print("\n[bold]Enrolled Course Time Table[/bold]")
-        for e in entries:
-            console.print(f"  {_row_label(e)}")
-        console.print()
-    else:
-        console.print("\n[yellow]No timetable entries yet.[/yellow]\n")
+    while True:
+        entries = load_timetable()
+        if entries:
+            console.print("\n[bold]Enrolled Course Time Table[/bold]")
+            for e in entries:
+                console.print(f"  {_row_label(e)}")
+            console.print()
+        else:
+            console.print("\n[yellow]No timetable entries yet.[/yellow]\n")
 
-    choice = questionary.select(
-        "Time Table:",
-        choices=[questionary.Choice(proceed_label, value="next"), questionary.Choice("Edit", value="edit")],
-        erase_when_done=True,
-    ).ask()
-    if choice is None:
-        raise UserCancelled
-    if choice == "edit":
-        edit_timetable_menu()
+        choice = questionary.select(
+            "Time Table:",
+            choices=[questionary.Choice(proceed_label, value="next"), questionary.Choice("Edit", value="edit")],
+            erase_when_done=True,
+        ).ask()
+        if choice is None:
+            raise UserCancelled
+        if choice == "edit":
+            edit_timetable_menu()
+            continue
 
-    return load_timetable()
+        return load_timetable()
 
 
 def _demo() -> None:
