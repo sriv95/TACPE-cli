@@ -1,6 +1,7 @@
 """Shared HTTP request helper — injects the session Cookie header globally."""
 
 import functools
+import json
 import time
 import urllib.error
 import urllib.request
@@ -57,3 +58,11 @@ def request(url: str, *, method: str = "GET", data: bytes | None = None, headers
     req = urllib.request.Request(url, data=data, headers={**(headers or {}), "Cookie": _cookie}, method=method)
     with urllib.request.urlopen(req) as resp:
         return resp.read()
+
+
+def post_json(url: str, payload: dict) -> bytes:
+    """POST a JSON payload to the API.
+    Input: url (str), payload (dict).
+    Output: (bytes) raw response body.
+    """
+    return request(url, method="POST", data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"})

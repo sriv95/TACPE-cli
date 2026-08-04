@@ -9,9 +9,9 @@ from zoneinfo import ZoneInfo
 import questionary
 from rich.console import Console
 
-from src.const import ADD_WORK_URL, WORK_REPORT_URL
+from src.const import ADD_WORK_URL, DELETE_WORK_URL, EDIT_WORK_URL, WORK_REPORT_URL
 from src.exceptions import UserCancelled
-from src.request import request
+from src.request import post_json, request
 
 UTC = ZoneInfo("UTC")
 
@@ -43,22 +43,40 @@ def _to_utc_date(date_str: str) -> str:
     return local_midnight.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
-def submit_work(course_id: int, entry: dict) -> None:
-    """POST a work entry to the API.
+def _work_payload(course_id: int, entry: dict) -> dict:
+    """Build the courseId/work/date/time payload shared by add and edit.
     Input: course_id (int), entry (dict) - date/work/time_start/time_end.
+    Output: (dict) payload.
     """
-    payload = {
+    return {
         "courseId": course_id,
         "work": entry["work"],
         "date": _to_utc_date(entry["date"]),
         "time": f"{entry['time_start'].replace(':', '')}-{entry['time_end'].replace(':', '')}",
     }
-    request(
-        ADD_WORK_URL,
-        method="POST",
-        data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json"},
-    )
+
+
+def submit_work(course_id: int, entry: dict) -> None:
+    """POST a new work entry to the API.
+    Input: course_id (int), entry (dict) - date/work/time_start/time_end.
+    """
+    post_json(ADD_WORK_URL, _work_payload(course_id, entry))
+
+
+def edit_work(course_id: int, work_id: str, entry: dict) -> None:
+    """POST an edit for an existing work entry.
+    Input: course_id (int), work_id (str), entry (dict) - date/work/time_start/time_end.
+    """
+    payload = _work_payload(course_id, entry)
+    payload["workId"] = work_id
+    post_json(EDIT_WORK_URL, payload)
+
+
+def delete_work(course_id: int, work_id: str) -> None:
+    """POST a deletion for an existing work entry.
+    Input: course_id (int), work_id (str).
+    """
+    post_json(DELETE_WORK_URL, {"courseId": course_id, "workId": work_id})
 
 
 def format_date(date_str: str) -> str:
@@ -113,7 +131,30 @@ def view_works(course_id: int, course_label: str) -> None:
         elif selected is EXIT_APP:
             sys.exit(0)
         else:
-            console.print("[yellow]Not implemented yet.[/yellow]")
+            work = next(w for w in works if w["_id"] == selected)
+            work_entry_menu(course_id, work)
+
+
+def work_entry_menu(course_id: int, work: dict) -> None:
+    """Prompt user to Edit/Delete/Back for a selected work entry.
+    Input: course_id (int), work (dict) - the selected work entry.
+    """
+    choice = questionary.select(
+        "Work entry:",
+        choices=[
+            questionary.Choice("Edit", value="edit"),
+            questionary.Choice("Delete", value="delete"),
+            questionary.Choice("Back", value="back"),
+        ],
+        instruction=f"\n  {format_date(work['date'])} | {format_time(work['time'])} | {work['work']}\n",
+        erase_when_done=True,
+    ).ask()
+    if choice is None:
+        raise UserCancelled
+    if choice == "edit":
+        edit_work_entry(course_id, work)
+    elif choice == "delete":
+        delete_work_entry(course_id, work)
 
 
 def add_works_menu(course_id: int) -> None:
@@ -225,13 +266,15 @@ def _validate_time_end(text: str, start: str) -> bool | str:
     return True
 
 
-def _prompt_work_entry() -> dict:
+def _prompt_work_entry(label: str = "Add a Work", defaults: dict | None = None) -> dict:
     """Prompt user through date/task/start/end time for one entry.
+    Input: label (str) - prompt prefix, defaults (dict | None) - prefill date/work/time_start/time_end.
     Output: (dict) entry with hours.
     """
+    defaults = defaults or {}
     date_str = questionary.text(
-        "Add a Work - Enter Date (YYYY-MM-DD):",
-        default=datetime.now(BANGKOK).strftime("%Y-%m-%d"),
+        f"{label} - Enter Date (YYYY-MM-DD):",
+        default=defaults.get("date", datetime.now(BANGKOK).strftime("%Y-%m-%d")),
         validate=validate_date,
         erase_when_done=True,
     ).ask()
@@ -239,7 +282,8 @@ def _prompt_work_entry() -> dict:
         raise UserCancelled
 
     work = questionary.text(
-        "Add a Work - Enter Task:",
+        f"{label} - Enter Task:",
+        default=defaults.get("work", ""),
         instruction=f"\n  Date: {date_str}\n",
         validate=validate_work,
         erase_when_done=True,
@@ -248,7 +292,8 @@ def _prompt_work_entry() -> dict:
         raise UserCancelled
 
     time_start = questionary.text(
-        "Add a Work - Enter Start Time (HH:MM):",
+        f"{label} - Enter Start Time (HH:MM):",
+        default=defaults.get("time_start", ""),
         instruction=f"\n  Date: {date_str}\n  Task: {work}\n",
         validate=_validate_time,
         erase_when_done=True,
@@ -258,7 +303,8 @@ def _prompt_work_entry() -> dict:
     time_start = parse_time(time_start)
 
     time_end = questionary.text(
-        "Add a Work - Enter End Time (HH:MM):",
+        f"{label} - Enter End Time (HH:MM):",
+        default=defaults.get("time_end", ""),
         instruction=f"\n  Date: {date_str}\n  Task: {work}\n  Start: {time_start}\n",
         validate=lambda text: _validate_time_end(text, time_start),
         erase_when_done=True,
@@ -274,12 +320,11 @@ def _prompt_work_entry() -> dict:
     return {"date": date_str, "work": work, "time_start": time_start, "time_end": time_end, "hours": hours}
 
 
-def add_works(course_id: int) -> None:
-    """Collect one work entry, show summary/warnings, confirm, and submit.
-    Input: course_id (int).
+def _summarize(entry: dict) -> str:
+    """Build a summary string with warnings for a prompted entry.
+    Input: entry (dict) - date/work/time_start/time_end/hours.
+    Output: (str) summary.
     """
-    entry = _prompt_work_entry()
-
     summary = (
         f"\n{entry['date']} | {entry['time_start']} - {entry['time_end']} "
         f"({entry['hours']:g} hrs) | {entry['work']}\n"
@@ -288,9 +333,17 @@ def add_works(course_id: int) -> None:
         summary += f"  Warning: {entry['hours']:g} hrs is not a whole number of hours.\n"
     if overlaps_lunch(entry["time_start"], entry["time_end"]):
         summary += "  Warning: overlaps lunch break (12:00-13:00).\n"
+    return summary
+
+
+def add_works(course_id: int) -> None:
+    """Collect one work entry, show summary/warnings, confirm, and submit.
+    Input: course_id (int).
+    """
+    entry = _prompt_work_entry()
 
     confirmed = questionary.confirm(
-        "Submit this work? (Y/n)", instruction=summary, erase_when_done=True
+        "Submit this work? (Y/n)", instruction=_summarize(entry), erase_when_done=True
     ).ask()
     if confirmed is None:
         raise UserCancelled
@@ -302,5 +355,70 @@ def add_works(course_id: int) -> None:
         f"[bold green]Added:[/bold green] {entry['date']} | {entry['time_start']} - {entry['time_end']} "
         f"({entry['hours']:g} hrs) | {entry['work']}"
     )
+
+
+def edit_work_entry(course_id: int, work: dict) -> None:
+    """Prompt with prefilled values, show summary/warnings, confirm, and submit an edit.
+    Input: course_id (int), work (dict) - the existing work entry.
+    """
+    start, end = work["time"].split("-")
+    defaults = {
+        "date": format_date(work["date"]),
+        "work": work["work"],
+        "time_start": f"{start[:2]}:{start[2:]}",
+        "time_end": f"{end[:2]}:{end[2:]}",
+    }
+    entry = _prompt_work_entry(label="Edit Work", defaults=defaults)
+
+    confirmed = questionary.confirm(
+        "Submit this edit? (Y/n)", instruction=_summarize(entry), erase_when_done=True
+    ).ask()
+    if confirmed is None:
+        raise UserCancelled
+    if not confirmed:
+        return
+
+    edit_work(course_id, work["_id"], entry)
+    console.print(
+        f"[bold green]Updated:[/bold green] {entry['date']} | {entry['time_start']} - {entry['time_end']} "
+        f"({entry['hours']:g} hrs) | {entry['work']}"
+    )
+
+
+def delete_work_entry(course_id: int, work: dict) -> None:
+    """Confirm and delete an existing work entry.
+    Input: course_id (int), work (dict) - the existing work entry.
+    """
+    confirmed = questionary.confirm(
+        "Delete this work? (y/N)",
+        default=False,
+        instruction=f"\n  {format_date(work['date'])} | {format_time(work['time'])} | {work['work']}\n",
+        erase_when_done=True,
+    ).ask()
+    if confirmed is None:
+        raise UserCancelled
+    if not confirmed:
+        return
+
+    delete_work(course_id, work["_id"])
+    console.print(f"[bold red]Deleted:[/bold red] {format_date(work['date'])} | {work['work']}")
+
+
+def _demo() -> None:
+    """Self-check: payload building and edit-prefill time parsing (no network)."""
+    entry = {"date": "2026-08-03", "work": "tests", "time_start": "00:30", "time_end": "03:00", "hours": 2.5}
+    payload = _work_payload(1, entry)
+    assert payload["time"] == "0030-0300"
+    assert payload["date"].endswith("Z")
+
+    work = {"_id": "w1", "date": payload["date"], "work": "tests", "time": "0030-0300"}
+    start, end = work["time"].split("-")
+    assert f"{start[:2]}:{start[2:]}" == "00:30"
+    assert f"{end[:2]}:{end[2:]}" == "03:00"
+
+
+if __name__ == "__main__":
+    _demo()
+    print("OK")
 
 
