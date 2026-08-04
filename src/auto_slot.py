@@ -55,18 +55,13 @@ def fetch_all_course_works() -> list[dict]:
     return works
 
 
-def find_free_slots(
-    date_str: str,
-    duration_hours: float,
-    timetable: list[dict],
-    all_works: list[dict],
-    extra_busy: list[tuple[int, int]] = (),
-) -> list[str]:
-    """Enumerate free start times for a duration on a date (30-min grid, 00:00-23:30).
-    Input: date_str (str) - YYYY-MM-DD, duration_hours (float), timetable (list[dict]),
-        all_works (list[dict]) - work entries across courses, extra_busy (list[tuple]) -
-        extra minute ranges to also treat as busy (e.g. already-placed rows in this run).
-    Output: (list[str]) free 'HH:MM' start candidates, ascending.
+def _busy_ranges(
+    date_str: str, timetable: list[dict], all_works: list[dict], extra_busy: list[tuple[int, int]] = ()
+) -> list[tuple[int, int]]:
+    """Build the list of busy minute ranges (lunch + timetable + existing works) for a date.
+    Input: date_str (str) - YYYY-MM-DD, timetable (list[dict]), all_works (list[dict]),
+        extra_busy (list[tuple]) - extra ranges to also treat as busy.
+    Output: (list[tuple[int, int]]) (start_min, end_min) ranges.
     """
     weekday = datetime.strptime(date_str, "%Y-%m-%d").weekday()
 
@@ -78,16 +73,48 @@ def find_free_slots(
         start, end = w["time"].split("-")
         busy.append((int(start[:2]) * 60 + int(start[2:]), int(end[:2]) * 60 + int(end[2:])))
     busy.extend(extra_busy)
+    return busy
+
+
+def slots_with_overlap(
+    date_str: str,
+    duration_hours: float,
+    timetable: list[dict],
+    all_works: list[dict],
+    extra_busy: list[tuple[int, int]] = (),
+) -> list[tuple[str, bool]]:
+    """Enumerate every start-time candidate for a duration on a date (30-min grid, 00:00-23:30),
+    each flagged whether it overlaps lunch/timetable/existing works.
+    Input: date_str (str) - YYYY-MM-DD, duration_hours (float), timetable (list[dict]),
+        all_works (list[dict]) - work entries across courses, extra_busy (list[tuple]) -
+        extra minute ranges to also treat as busy (e.g. already-placed rows in this run).
+    Output: (list[tuple[str, bool]]) (start 'HH:MM', has_overlap), ascending.
+    """
+    busy = _busy_ranges(date_str, timetable, all_works, extra_busy)
 
     duration_min = round(duration_hours * 60)
-    candidates = []
+    slots = []
     t = DAY_START
     while t + duration_min <= DAY_END:
         end_t = t + duration_min
-        if not any(t < b_end and end_t > b_start for b_start, b_end in busy):
-            candidates.append(_fmt(t))
+        overlap = any(t < b_end and end_t > b_start for b_start, b_end in busy)
+        slots.append((_fmt(t), overlap))
         t += 30
-    return candidates
+    return slots
+
+
+def find_free_slots(
+    date_str: str,
+    duration_hours: float,
+    timetable: list[dict],
+    all_works: list[dict],
+    extra_busy: list[tuple[int, int]] = (),
+) -> list[str]:
+    """Enumerate free (non-overlapping) start times for a duration on a date.
+    Input: same as slots_with_overlap.
+    Output: (list[str]) free 'HH:MM' start candidates, ascending.
+    """
+    return [t for t, overlap in slots_with_overlap(date_str, duration_hours, timetable, all_works, extra_busy) if not overlap]
 
 
 def default_pick(candidates: list[str]) -> str | None:
@@ -132,6 +159,22 @@ def _filter_by_min_start(candidates: list[str], min_start: str | None) -> list[s
     return filtered
 
 
+def _filter_slots_by_min_start(
+    slots: list[tuple[str, bool]], min_start: str | None
+) -> list[tuple[str, bool]]:
+    """Filter (time, overlap) slots to >= min_start, falling back to the full list if that empties it.
+    Input: slots (list[tuple[str, bool]]), min_start (str | None) - parsed 'HH:MM' or None.
+    Output: (list[tuple[str, bool]]) filtered (or original) slots.
+    """
+    if not min_start:
+        return slots
+    filtered = [s for s in slots if minutes(s[0]) >= minutes(min_start)]
+    if not filtered:
+        console.print(f"[yellow]No slot at/after {min_start} - showing all slots instead.[/yellow]")
+        return slots
+    return filtered
+
+
 def auto_find_slot(course_id: int) -> None:
     """Single-entry Auto Find Slot flow: timetable gate, prompt, pick, confirm, submit.
     Input: course_id (int).
@@ -167,9 +210,9 @@ def auto_find_slot(course_id: int) -> None:
         raise UserCancelled
 
     all_works = fetch_all_course_works()
-    candidates = find_free_slots(date_str, duration, timetable, all_works)
-    if not candidates:
-        console.print(f"[red]No free {duration:g}-hour slot on {date_str}.[/red]")
+    all_slots = slots_with_overlap(date_str, duration, timetable, all_works)
+    if not all_slots:
+        console.print(f"[red]No {duration:g}-hour slot fits in the day.[/red]")
         return
 
     min_start_text = questionary.text(
@@ -182,16 +225,23 @@ def auto_find_slot(course_id: int) -> None:
     min_start = parse_time(min_start_text) if min_start_text.strip() else None
     if min_start_text.strip() and min_start is None:
         console.print("[yellow]Could not parse minimum start time - ignoring it.[/yellow]")
-    candidates = _filter_by_min_start(candidates, min_start)
+    all_slots = _filter_slots_by_min_start(all_slots, min_start)
+
+    free_times = [t for t, overlap in all_slots if not overlap]
+    default = default_pick(free_times) if free_times else all_slots[0][0]
 
     choices = [
-        questionary.Choice(f"{c} - {_fmt(minutes(c) + round(duration * 60))} ({duration:g} hrs)", value=c)
-        for c in candidates
+        questionary.Choice(
+            f"{c} - {_fmt(minutes(c) + round(duration * 60))} ({duration:g} hrs)"
+            + ("  [!] overlaps timetable/lunch/existing work" if overlap else ""),
+            value=c,
+        )
+        for c, overlap in all_slots
     ]
     time_start = questionary.select(
         "Auto Find Slot - Choose start time:",
         choices=choices,
-        default=default_pick(candidates),
+        default=default,
         instruction=f"\n  Date: {date_str}\n  Task: {work}\n",
         erase_when_done=True,
     ).ask()
@@ -200,6 +250,9 @@ def auto_find_slot(course_id: int) -> None:
     time_end = _fmt(minutes(time_start) + round(duration * 60))
 
     entry = {"date": date_str, "work": work, "time_start": time_start, "time_end": time_end, "hours": duration}
+
+    if time_start not in free_times:
+        console.print("[yellow]Warning: chosen time overlaps your timetable/lunch/existing work.[/yellow]")
 
     confirmed = questionary.confirm(
         "Submit this work? (Y/n)", instruction=summarize_entry(entry), erase_when_done=True
