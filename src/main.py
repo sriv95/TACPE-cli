@@ -5,6 +5,7 @@ from rich.console import Console
 from src.auth import login
 from src.course import select_course
 from src.exceptions import UserCancelled
+from src.update import check_update
 from src.works import view_works
 
 console = Console()
@@ -13,6 +14,7 @@ console = Console()
 def main():
     """Run the full CLI: login, select course, enter works menu."""
     try:
+        check_update()
         login()
         while True:
             course_id, course_label = select_course()
