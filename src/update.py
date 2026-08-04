@@ -47,9 +47,7 @@ def check_update() -> None:
         return
 
     manager = _installed_via()
-    cmd = [manager] + (
-        ["tool", "install", "--force"] if manager == "uv" else ["install", "--force"]
-    ) + [f"git+{REPO_URL}"]
+    cmd = [manager] + (["tool", "upgrade"] if manager == "uv" else ["upgrade"]) + ["tacpe-csv-to-works"]
 
     if sys.platform == "win32":
         # Windows locks the running exe — it can't be overwritten by this same process.
