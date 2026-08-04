@@ -143,6 +143,7 @@ def work_entry_menu(course_id: int, work: dict) -> None:
         "Work entry:",
         choices=[
             questionary.Choice("Edit", value="edit"),
+            questionary.Choice("Clone", value="clone"),
             questionary.Choice("Delete", value="delete"),
             questionary.Choice("Back", value="back"),
         ],
@@ -153,6 +154,8 @@ def work_entry_menu(course_id: int, work: dict) -> None:
         raise UserCancelled
     if choice == "edit":
         edit_work_entry(course_id, work)
+    elif choice == "clone":
+        clone_work_entry(course_id, work)
     elif choice == "delete":
         delete_work_entry(course_id, work)
 
@@ -381,6 +384,41 @@ def edit_work_entry(course_id: int, work: dict) -> None:
     edit_work(course_id, work["_id"], entry)
     console.print(
         f"[bold green]Updated:[/bold green] {entry['date']} | {entry['time_start']} - {entry['time_end']} "
+        f"({entry['hours']:g} hrs) | {entry['work']}"
+    )
+
+
+def clone_work_entry(course_id: int, work: dict) -> None:
+    """Prompt for a new date, reuse task/time from an existing entry, confirm, and submit.
+    Input: course_id (int), work (dict) - the existing work entry to clone.
+    """
+    start, end = work["time"].split("-")
+    date_str = questionary.text(
+        "Clone Work - Enter Date (YYYY-MM-DD):",
+        default=datetime.now(BANGKOK).strftime("%Y-%m-%d"),
+        instruction=f"\n  Task: {work['work']}\n  Time: {start[:2]}:{start[2:]} - {end[:2]}:{end[2:]}\n",
+        validate=validate_date,
+        erase_when_done=True,
+    ).ask()
+    if date_str is None:
+        raise UserCancelled
+
+    time_start = f"{start[:2]}:{start[2:]}"
+    time_end = f"{end[:2]}:{end[2:]}"
+    hours = (minutes(time_end) - minutes(time_start)) / 60
+    entry = {"date": date_str, "work": work["work"], "time_start": time_start, "time_end": time_end, "hours": hours}
+
+    confirmed = questionary.confirm(
+        "Submit this work? (Y/n)", instruction=_summarize(entry), erase_when_done=True
+    ).ask()
+    if confirmed is None:
+        raise UserCancelled
+    if not confirmed:
+        return
+
+    submit_work(course_id, entry)
+    console.print(
+        f"[bold green]Added:[/bold green] {entry['date']} | {entry['time_start']} - {entry['time_end']} "
         f"({entry['hours']:g} hrs) | {entry['work']}"
     )
 
