@@ -2,14 +2,17 @@
 
 import json
 import re
+import subprocess
 import sys
+import webbrowser
 from datetime import datetime, timedelta
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import questionary
 from rich.console import Console
 
-from src.const import ADD_WORK_URL, DELETE_WORK_URL, EDIT_WORK_URL, WORK_REPORT_URL
+from src.const import ADD_WORK_URL, BASE_URL, DELETE_WORK_URL, EDIT_WORK_URL, WORK_REPORT_URL
 from src.exceptions import UserCancelled
 from src.request import post_json, request
 
@@ -201,6 +204,7 @@ def more_options_menu(course_id: int, works: list[dict]) -> None:
         "More Options:",
         choices=[
             questionary.Choice("Delete multiple", value="delete_multiple"),
+            questionary.Choice("Open in Browser", value="open_browser"),
             questionary.Choice("Back", value="back"),
         ],
         erase_when_done=True,
@@ -209,6 +213,29 @@ def more_options_menu(course_id: int, works: list[dict]) -> None:
         raise UserCancelled
     if choice == "delete_multiple":
         delete_multiple_works(course_id, works)
+    elif choice == "open_browser":
+        open_in_browser(course_id)
+
+
+def open_in_browser(course_id: int) -> None:
+    """Open the work report page in a detached Playwright Chromium window with the saved session cookie injected,
+    else the default browser. Fire-and-forget: does not block the CLI.
+    Input: course_id (int).
+    """
+    url = f"{BASE_URL}/student/workReport/{course_id}"
+    chromium_installed = False
+    try:
+        from playwright.sync_api import sync_playwright
+
+        with sync_playwright() as p:
+            chromium_installed = Path(p.chromium.executable_path).exists()
+    except ImportError:
+        pass
+
+    if chromium_installed:
+        subprocess.Popen([sys.executable, "-m", "src.browser_launcher", url], start_new_session=True)
+    else:
+        webbrowser.open(url)
 
 
 def delete_multiple_works(course_id: int, works: list[dict]) -> None:
