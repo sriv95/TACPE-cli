@@ -5,21 +5,27 @@ CLI that adds TA work entries into the CPE TA site, single or in bulk from a CSV
 ## Prerequisite
 
 - Python >=3.14
-- [uv](https://docs.astral.sh/uv/)
+- [uv](https://docs.astral.sh/uv/) (provides `uvx`) or [pipx](https://pipx.pypa.io/)
+
+## One-time (Without install)
+```bash
+uvx --from git+https://github.com/sriv95/TACPE-csv-to-works tacpe
+```
 
 ## Installation
 
 ```bash
-git clone https://github.com/sriv95/TACPE-csv-to-works
-cd TACPE-csv-to-works
-uv sync                              # install dependencies
-uv run playwright install chromium   # browser for the Browser login method
+uv tool install git+https://github.com/sriv95/TACPE-csv-to-works
+# or: pipx install git+https://github.com/sriv95/TACPE-csv-to-works
 ```
+
+Updating: re-run `uv tool install --force git+https://github.com/sriv95/TACPE-csv-to-works`.
 
 ## Usage
 
 ```bash
-uv run python -m src.main
+tacpe
+# or, from a clone: uv run python -m src.main
 ```
 
 1. **Login** - on first run, choose how to authenticate:
