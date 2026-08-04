@@ -3,7 +3,7 @@
 import json
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import questionary
@@ -43,6 +43,56 @@ def _to_utc_date(date_str: str) -> str:
     """
     local_midnight = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=BANGKOK)
     return local_midnight.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+def _month_range(anchor_date: str) -> tuple[str, str]:
+    """Compute the [1st-of-last-month-relative-to-anchor, today] date bound.
+    Input: anchor_date (str) - YYYY-MM-DD, whose month determines the lower bound.
+    Output: (tuple[str, str]) (min_date, max_date) as YYYY-MM-DD.
+    """
+    anchor = datetime.strptime(anchor_date, "%Y-%m-%d")
+    first_of_anchor_month = anchor.replace(day=1)
+    last_month_end = first_of_anchor_month - timedelta(days=1)
+    min_date = last_month_end.replace(day=1).strftime("%Y-%m-%d")
+    max_date = datetime.now(BANGKOK).strftime("%Y-%m-%d")
+    return min_date, max_date
+
+
+def _weekly_dates(selected_date: str, min_date: str, max_date: str) -> list[str]:
+    """List dates sharing selected_date's weekday, 7 days apart, within [min_date, max_date], newest first.
+    Input: selected_date, min_date, max_date (str) - YYYY-MM-DD.
+    Output: (list[str]) dates, newest first, includes selected_date.
+    """
+    anchor = datetime.strptime(selected_date, "%Y-%m-%d")
+    lo = datetime.strptime(min_date, "%Y-%m-%d")
+    hi = datetime.strptime(max_date, "%Y-%m-%d")
+
+    step = anchor
+    while step <= hi:
+        step += timedelta(days=7)
+    step -= timedelta(days=7)
+
+    dates = []
+    while step >= lo:
+        dates.append(step.strftime("%Y-%m-%d"))
+        step -= timedelta(days=7)
+    return dates
+
+
+def _daily_dates(min_date: str, max_date: str) -> list[str]:
+    """List every calendar date within [min_date, max_date], newest first.
+    Input: min_date, max_date (str) - YYYY-MM-DD.
+    Output: (list[str]) dates, newest first, inclusive of both bounds.
+    """
+    lo = datetime.strptime(min_date, "%Y-%m-%d")
+    hi = datetime.strptime(max_date, "%Y-%m-%d")
+
+    dates = []
+    step = hi
+    while step >= lo:
+        dates.append(step.strftime("%Y-%m-%d"))
+        step -= timedelta(days=1)
+    return dates
 
 
 def _work_payload(course_id: int, entry: dict) -> dict:
@@ -352,21 +402,38 @@ def _validate_time_end(text: str, start: str) -> bool | str:
     return True
 
 
-def _prompt_work_entry(label: str = "Add a Work", defaults: dict | None = None) -> dict:
-    """Prompt user through date/task/start/end time for one entry.
-    Input: label (str) - prompt prefix, defaults (dict | None) - prefill date/work/time_start/time_end.
-    Output: (dict) entry with hours.
+def _prompt_date(label: str, default: str, min_date: str | None = None, max_date: str | None = None) -> str:
+    """Prompt for a date, optionally bounded to [min_date, max_date].
+    Input: label (str) - prompt prefix, default (str) - prefill YYYY-MM-DD,
+        min_date/max_date (str | None) - inclusive bound, or None to skip the range check.
+    Output: (str) YYYY-MM-DD.
     """
-    defaults = defaults or {}
+    def _validate(text: str) -> bool | str:
+        valid = validate_date(text)
+        if valid is not True:
+            return valid
+        if min_date and max_date and not (min_date <= text <= max_date):
+            return f"Format: YYYY-MM-DD (between {min_date} and {max_date})"
+        return True
+
     date_str = questionary.text(
         f"{label} - Enter Date (YYYY-MM-DD):",
-        default=defaults.get("date", datetime.now(BANGKOK).strftime("%Y-%m-%d")),
-        validate=validate_date,
+        default=default,
+        validate=_validate,
         erase_when_done=True,
     ).ask()
     if date_str is None:
         raise UserCancelled
+    return date_str
 
+
+def _prompt_task_time(label: str, date_str: str, defaults: dict | None = None) -> dict:
+    """Prompt user through task/start/end time for one entry.
+    Input: label (str) - prompt prefix, date_str (str) - already-known date, shown for context,
+        defaults (dict | None) - prefill work/time_start/time_end.
+    Output: (dict) {work, time_start, time_end, hours}.
+    """
+    defaults = defaults or {}
     work = questionary.text(
         f"{label} - Enter Task:",
         default=defaults.get("work", ""),
@@ -399,11 +466,72 @@ def _prompt_work_entry(label: str = "Add a Work", defaults: dict | None = None) 
         raise UserCancelled
     time_end = parse_time(time_end)
 
-    start_min = int(time_start[:2]) * 60 + int(time_start[3:])
-    end_min = int(time_end[:2]) * 60 + int(time_end[3:])
-    hours = (end_min - start_min) / 60
+    hours = (minutes(time_end) - minutes(time_start)) / 60
+    return {"work": work, "time_start": time_start, "time_end": time_end, "hours": hours}
 
-    return {"date": date_str, "work": work, "time_start": time_start, "time_end": time_end, "hours": hours}
+
+def _prompt_work_entry(label: str = "Add a Work", defaults: dict | None = None) -> dict:
+    """Prompt user through date/task/start/end time for one entry.
+    Input: label (str) - prompt prefix, defaults (dict | None) - prefill date/work/time_start/time_end.
+    Output: (dict) entry with hours.
+    """
+    defaults = defaults or {}
+    default_date = defaults.get("date", datetime.now(BANGKOK).strftime("%Y-%m-%d"))
+    date_str = _prompt_date(label, default_date)
+    task_time = _prompt_task_time(label, date_str, defaults)
+    return {"date": date_str, **task_time}
+
+
+def prompt_weekly_until(selected_date: str, min_date: str, max_date: str) -> list[str]:
+    """Prompt for a weekly-repeat cutoff via select, cursor starting on selected_date.
+    Input: selected_date, min_date, max_date (str) - YYYY-MM-DD.
+    Output: (list[str]) dates between selected_date and the chosen cutoff (inclusive), newest first.
+    """
+    weekdays = _weekly_dates(selected_date, min_date, max_date)
+
+    def _label(d: str) -> str:
+        weekday = datetime.strptime(d, "%Y-%m-%d").strftime("%a")
+        tag = " (today)" if d == max_date else " (1st of last month)" if d == min_date else ""
+        return f"{d} ({weekday}){tag}"
+
+    choices = [questionary.Choice(_label(d), value=d) for d in weekdays]
+    cutoff = questionary.select(
+        "Repeat weekly until:",
+        choices=choices,
+        default=next(c for c in choices if c.value == selected_date),
+        erase_when_done=True,
+    ).ask()
+    if cutoff is None:
+        raise UserCancelled
+
+    lo, hi = sorted([selected_date, cutoff])
+    return [d for d in weekdays if lo <= d <= hi]
+
+
+def prompt_multi_select_dates(selected_date: str, min_date: str, max_date: str) -> list[str]:
+    """Checkbox-select dates, selected_date pre-checked with cursor starting there.
+    Input: selected_date, min_date, max_date (str) - YYYY-MM-DD.
+    Output: (list[str]) checked dates.
+    """
+    days = _daily_dates(min_date, max_date)
+
+    def _label(d: str) -> str:
+        tag = " (today)" if d == max_date else " (1st of last month)" if d == min_date else ""
+        return f"{d}{tag}"
+
+    choices = [
+        questionary.Choice(_label(d), value=d, checked=(d == selected_date))
+        for d in days
+    ]
+    selected = questionary.checkbox(
+        "Select dates (space to toggle, enter to confirm):",
+        choices=choices,
+        initial_choice=selected_date,
+        erase_when_done=True,
+    ).ask()
+    if selected is None:
+        raise UserCancelled
+    return selected
 
 
 def summarize_entry(entry: dict) -> str:
@@ -424,25 +552,108 @@ def summarize_entry(entry: dict) -> str:
     return summary
 
 
+def summarize_entries(dates: list[str], task_time: dict) -> str:
+    """Build a summary string (one row per date) with shared warnings, for a multi-date add.
+    Input: dates (list[str]) - YYYY-MM-DD dates, task_time (dict) - work/time_start/time_end/hours.
+    Output: (str) summary.
+    """
+    lines = [
+        f"{d} | {task_time['time_start']} - {task_time['time_end']} "
+        f"({task_time['hours']:g} hrs) | {task_time['work']}"
+        for d in dates
+    ]
+    summary = "\n" + "\n".join(lines) + "\n"
+    if task_time["hours"] % 1 != 0:
+        summary += f"  Warning: {task_time['hours']:g} hrs is not a whole number of hours.\n"
+    if task_time["hours"] > 4:
+        summary += f"  Warning: {task_time['hours']:g} hrs exceeds max 4 hours.\n"
+    if overlaps_lunch(task_time["time_start"], task_time["time_end"]):
+        summary += "  Warning: overlaps lunch break (12:00-13:00).\n"
+    return summary
+
+
+def _prompt_more_dates(selected_date: str, today: str) -> list[str]:
+    """Prompt for additional dates to add to the current batch: weekly-until, multi-select, or one more single date.
+    Input: selected_date (str) - the original anchor date, today (str) - YYYY-MM-DD bound reference.
+    Output: (list[str]) additional dates, or [] if the user chose Back.
+    """
+    mode = questionary.select(
+        "Add more:",
+        choices=[
+            questionary.Choice("Every week until date", value="weekly"),
+            questionary.Choice("Multiple dates (multi-select)", value="multi"),
+            questionary.Choice("Single date", value="single"),
+            questionary.Choice("Back", value="back"),
+        ],
+        erase_when_done=True,
+    ).ask()
+    if mode is None:
+        raise UserCancelled
+    if mode == "back":
+        return []
+
+    if mode == "single":
+        step_min, step_max = _month_range(today)
+        return [_prompt_date("Add a Work", today, step_min, step_max)]
+
+    list_min, list_max = _month_range(selected_date)
+    if mode == "weekly":
+        return prompt_weekly_until(selected_date, list_min, list_max)
+    return prompt_multi_select_dates(selected_date, list_min, list_max)
+
+
 def add_works(course_id: int) -> None:
-    """Collect one work entry, show summary/warnings, confirm, and submit.
+    """Prompt for a date, shared task/time, then confirm/add-more/cancel, submit all.
     Input: course_id (int).
     """
-    entry = _prompt_work_entry()
+    today = datetime.now(BANGKOK).strftime("%Y-%m-%d")
+    step_min, step_max = _month_range(today)
+    selected_date = _prompt_date("Add a Work", today, step_min, step_max)
+    dates = [selected_date]
 
-    confirmed = questionary.confirm(
-        "Submit this work? (Y/n)", instruction=summarize_entry(entry), erase_when_done=True
-    ).ask()
-    if confirmed is None:
-        raise UserCancelled
-    if not confirmed:
-        return
+    task_time = _prompt_task_time("Add a Work", selected_date)
 
-    submit_work(course_id, entry)
-    console.print(
-        f"[bold green]Added:[/bold green] {entry['date']} | {entry['time_start']} - {entry['time_end']} "
-        f"({entry['hours']:g} hrs) | {entry['work']}"
-    )
+    while True:
+        dates = sorted(set(dates), reverse=True)
+        message = "Submit this work?" if len(dates) == 1 else f"Submit these {len(dates)} works?"
+        action = questionary.select(
+            message,
+            choices=[
+                questionary.Choice("Submit", value="submit"),
+                questionary.Choice("Add more dates", value="add_more"),
+                questionary.Choice("Cancel", value="cancel"),
+            ],
+            instruction=summarize_entries(dates, task_time),
+            erase_when_done=True,
+        ).ask()
+        if action is None:
+            raise UserCancelled
+        if action == "cancel":
+            return
+        if action == "submit":
+            break
+        dates = list(set(dates) | set(_prompt_more_dates(selected_date, today)))
+
+    added, failed = 0, 0
+    for date_str in dates:
+        entry = {"date": date_str, **task_time}
+        try:
+            submit_work(course_id, entry)
+        except Exception as e:
+            failed += 1
+            console.print(f"[red]Failed to add {date_str}: {e}[/red]")
+            continue
+        added += 1
+        console.print(
+            f"[bold green]Added:[/bold green] {date_str} | {task_time['time_start']} - {task_time['time_end']} "
+            f"({task_time['hours']:g} hrs) | {task_time['work']}"
+        )
+
+    if len(dates) > 1:
+        summary_line = f"[bold green]Added {added} work(s).[/bold green]"
+        if failed:
+            summary_line += f" [red]{failed} failed.[/red]"
+        console.print(summary_line)
 
 
 def edit_work_entry(course_id: int, work: dict) -> None:
@@ -538,6 +749,36 @@ def _demo() -> None:
     start, end = work["time"].split("-")
     assert f"{start[:2]}:{start[2:]}" == "00:30"
     assert f"{end[:2]}:{end[2:]}" == "03:00"
+
+    min_date, max_date = _month_range("2026-08-15")
+    assert min_date == "2026-07-01"
+    assert max_date == datetime.now(BANGKOK).strftime("%Y-%m-%d")
+
+    min_date, _ = _month_range("2026-08-01")
+    assert min_date == "2026-07-01"  # anchor on the 1st still uses the prior month
+
+    min_date, _ = _month_range("2026-01-15")
+    assert min_date == "2025-12-01"  # year rollover
+
+    weekly = _weekly_dates("2026-07-20", "2026-06-01", "2026-08-04")
+    assert weekly == [
+        "2026-08-03", "2026-07-27", "2026-07-20", "2026-07-13", "2026-07-06",
+        "2026-06-29", "2026-06-22", "2026-06-15", "2026-06-08", "2026-06-01",
+    ]
+
+    daily = _daily_dates("2026-06-01", "2026-06-03")
+    assert daily == ["2026-06-03", "2026-06-02", "2026-06-01"]
+
+    task_time = {"work": "tests", "time_start": "08:00", "time_end": "12:00", "hours": 4.0}
+    summary = summarize_entries(["2026-07-20", "2026-07-13"], task_time)
+    assert "2026-07-20 | 08:00 - 12:00 (4 hrs) | tests" in summary
+    assert "2026-07-13 | 08:00 - 12:00 (4 hrs) | tests" in summary
+    assert "Warning" not in summary  # exactly 4 hrs, no lunch overlap
+
+    task_time_warn = {"work": "tests", "time_start": "11:00", "time_end": "15:30", "hours": 4.5}
+    summary_warn = summarize_entries(["2026-07-20"], task_time_warn)
+    assert "not a whole number" in summary_warn
+    assert "overlaps lunch" in summary_warn
 
 
 if __name__ == "__main__":
