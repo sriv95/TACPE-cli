@@ -64,8 +64,12 @@ def request(url: str, *, method: str = "GET", data: bytes | None = None, headers
     if _cookie is None:
         raise RuntimeError("No cookie set. Call set_cookie() first.")
     req = urllib.request.Request(url, data=data, headers={**(headers or {}), "Cookie": _cookie}, method=method)
-    with urllib.request.urlopen(req) as resp:
-        return resp.read()
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return resp.read()
+    except urllib.error.HTTPError as e:
+        console.print(f"[red]HTTP {e.code} body: {e.read().decode(errors='replace')}[/red]")
+        raise
 
 
 def post_json(url: str, payload: dict) -> bytes:

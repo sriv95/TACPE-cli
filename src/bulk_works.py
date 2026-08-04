@@ -148,9 +148,18 @@ def add_bulk_works(course_id: int) -> None:
     if not confirmed:
         return
 
+    added, failed = 0, 0
     for entry in entries:
-        submit_work(course_id, entry)
+        try:
+            submit_work(course_id, entry)
+        except Exception as e:
+            failed += 1
+            console.print(f"[red]Failed to add {entry['date']}: {e}[/red]")
+            continue
+        added += 1
         console.print(
             f"[bold green]Added:[/bold green] {entry['date']} | {entry['time_start']} - "
             f"{entry['time_end']} | {entry['work']}"
         )
+
+    console.print(f"[bold green]Added {added} work(s).[/bold green]" + (f" [red]{failed} failed.[/red]" if failed else ""))
