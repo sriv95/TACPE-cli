@@ -23,18 +23,19 @@ CSV_INSTRUCTION = (
 )
 
 
-def select_csv_path() -> str | None:
+def select_csv_path(title: str = "Add bulk works - CSV file:", instruction: str = CSV_INSTRUCTION) -> str | None:
     """Ask how to locate the CSV (browse/type path/back).
+    Input: title (str), instruction (str) - prompt text overrides for other CSV flows.
     Output: (str | None) file path, or None if back.
     """
     method = questionary.select(
-        "Add bulk works - CSV file:",
+        title,
         choices=[
             questionary.Choice("1. From file... (browse)", value="browse"),
             questionary.Choice("2. From Path (type path)", value="path"),
             questionary.Choice("Back", value="back"),
         ],
-        instruction=CSV_INSTRUCTION,
+        instruction=instruction,
         erase_when_done=True,
     ).ask()
     if method is None:
@@ -53,7 +54,7 @@ def select_csv_path() -> str | None:
             return path
 
     path = questionary.text(
-        "CSV file path:", instruction=CSV_INSTRUCTION, erase_when_done=True
+        "CSV file path:", instruction=instruction, erase_when_done=True
     ).ask()
     if path is None:
         raise UserCancelled

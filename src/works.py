@@ -240,6 +240,8 @@ def add_works_menu(course_id: int) -> None:
         choices=[
             questionary.Choice("1. Add a work", value="single"),
             questionary.Choice("2. Add bulk works (.csv)", value="bulk"),
+            questionary.Choice("3. Auto Find Slot", value="auto"),
+            questionary.Choice("4. Auto Find Slot (bulk .csv)", value="auto_bulk"),
             questionary.Choice("Back", value="back"),
         ],
         erase_when_done=True,
@@ -252,6 +254,14 @@ def add_works_menu(course_id: int) -> None:
         from src.bulk_works import add_bulk_works
 
         add_bulk_works(course_id)
+    elif choice == "auto":
+        from src.auto_slot import auto_find_slot
+
+        auto_find_slot(course_id)
+    elif choice == "auto_bulk":
+        from src.auto_slot import auto_find_slot_bulk
+
+        auto_find_slot_bulk(course_id)
 
 
 def validate_date(text: str) -> bool | str:
@@ -270,10 +280,10 @@ def validate_work(text: str) -> bool | str:
     return True if text.strip() else "Task must not be empty"
 
 
-def parse_time(text: str) -> str | None:
+def parse_time(text: str, strict: bool = True) -> str | None:
     """Parse flexible time input (HH:MM, HHMM, H, H.mm) into normalized HH:MM.
-    Input: text (str) - raw input.
-    Output: (str | None) 'HH:MM', or None if invalid or minutes not 00/30.
+    Input: text (str) - raw input, strict (bool) - if True, minutes must be 00/30.
+    Output: (str | None) 'HH:MM', or None if invalid (or minutes not 00/30 when strict).
     """
     text = text.strip()
     hour = minute = None
@@ -293,7 +303,9 @@ def parse_time(text: str) -> str | None:
         if len(padded) == 4:
             hour, minute = int(padded[:2]), int(padded[2:])
 
-    if hour is None or not (0 <= hour <= 23) or minute not in (0, 30):
+    if hour is None or not (0 <= hour <= 23) or minute is None or not (0 <= minute <= 59):
+        return None
+    if strict and minute not in (0, 30):
         return None
     return f"{hour:02d}:{minute:02d}"
 
@@ -394,7 +406,7 @@ def _prompt_work_entry(label: str = "Add a Work", defaults: dict | None = None) 
     return {"date": date_str, "work": work, "time_start": time_start, "time_end": time_end, "hours": hours}
 
 
-def _summarize(entry: dict) -> str:
+def summarize_entry(entry: dict) -> str:
     """Build a summary string with warnings for a prompted entry.
     Input: entry (dict) - date/work/time_start/time_end/hours.
     Output: (str) summary.
@@ -417,7 +429,7 @@ def add_works(course_id: int) -> None:
     entry = _prompt_work_entry()
 
     confirmed = questionary.confirm(
-        "Submit this work? (Y/n)", instruction=_summarize(entry), erase_when_done=True
+        "Submit this work? (Y/n)", instruction=summarize_entry(entry), erase_when_done=True
     ).ask()
     if confirmed is None:
         raise UserCancelled
@@ -445,7 +457,7 @@ def edit_work_entry(course_id: int, work: dict) -> None:
     entry = _prompt_work_entry(label="Edit Work", defaults=defaults)
 
     confirmed = questionary.confirm(
-        "Submit this edit? (Y/n)", instruction=_summarize(entry), erase_when_done=True
+        "Submit this edit? (Y/n)", instruction=summarize_entry(entry), erase_when_done=True
     ).ask()
     if confirmed is None:
         raise UserCancelled
@@ -480,7 +492,7 @@ def clone_work_entry(course_id: int, work: dict) -> None:
     entry = {"date": date_str, "work": work["work"], "time_start": time_start, "time_end": time_end, "hours": hours}
 
     confirmed = questionary.confirm(
-        "Submit this work? (Y/n)", instruction=_summarize(entry), erase_when_done=True
+        "Submit this work? (Y/n)", instruction=summarize_entry(entry), erase_when_done=True
     ).ask()
     if confirmed is None:
         raise UserCancelled
