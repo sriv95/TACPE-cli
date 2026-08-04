@@ -50,6 +50,14 @@ def check_update() -> None:
     cmd = [manager] + (
         ["tool", "install", "--force"] if manager == "uv" else ["install", "--force"]
     ) + [f"git+{REPO_URL}"]
+
+    if sys.platform == "win32":
+        # Windows locks the running exe — it can't be overwritten by this same process.
+        console.print(
+            "[yellow]Close tacpe, then run this to update:[/yellow]\n  " + " ".join(cmd)
+        )
+        raise SystemExit(0)
+
     console.print(f"Updating via {manager}...")
     subprocess.run(cmd, check=True)
     console.print("[green]Updated. Restart tacpe to use the new version.[/green]")
