@@ -593,8 +593,7 @@ def _prompt_more_dates(selected_date: str, today: str) -> list[str]:
         return []
 
     if mode == "single":
-        step_min, step_max = _month_range(today)
-        return [_prompt_date("Add a Work", today, step_min, step_max)]
+        return [_prompt_date("Add a Work", today)]
 
     list_min, list_max = _month_range(selected_date)
     if mode == "weekly":
