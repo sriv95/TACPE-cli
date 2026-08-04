@@ -140,7 +140,10 @@ def timetable_gate(proceed_label: str = "Next") -> list[dict]:
 
         choice = questionary.select(
             "Time Table:",
-            choices=[questionary.Choice(proceed_label, value="next"), questionary.Choice("Edit", value="edit")],
+            choices=[
+                questionary.Choice(proceed_label, value="next"),
+                questionary.Choice("Edit Time Table", value="edit"),
+            ],
             erase_when_done=True,
         ).ask()
         if choice is None:
