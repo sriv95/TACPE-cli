@@ -26,9 +26,9 @@ Using [pipx](https://pipx.pypa.io/)
 pipx install git+https://github.com/sriv95/TACPE-csv-to-works
 ```
 
-Updating: `uv tool install --force git+https://github.com/sriv95/TACPE-csv-to-works`.
+Force Update: `uv tool upgrade tacpe` (or `pipx upgrade tacpe`)
 
-Uninstall: `uv tool uninstall tacpe-csv-to-works` (or `pipx uninstall tacpe-csv-to-works`).
+Uninstall: `uv tool uninstall tacpe` (or `pipx uninstall tacpe`).
 
 ## Usage
 
