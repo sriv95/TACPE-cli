@@ -117,20 +117,29 @@ def login_prompt() -> str:
     """Ask user to pick browser or manual login, run it, verify and save the result.
     Output: (str) validated Cookie header string.
     """
-    method = questionary.select(
-        "How do you want to login?",
-        choices=[
-            questionary.Choice("1. Browser login", value="browser"),
-            questionary.Choice("2. Manual paste Cookie", value="manual"),
-        ],
-    ).ask()
-    if method is None:
-        raise UserCancelled
-    cookie = (login_browser if method == "browser" else login_manual)()
-    if not test_cookie(cookie):
-        raise RuntimeError("Login failed the auth check after login.")
-    save_cookie(cookie)
-    return cookie
+    from playwright.sync_api import Error as PlaywrightError
+
+    while True:
+        method = questionary.select(
+            "How do you want to login?",
+            choices=[
+                questionary.Choice("1. Browser login", value="browser"),
+                questionary.Choice("2. Manual paste Cookie", value="manual"),
+            ],
+        ).ask()
+        if method is None:
+            raise UserCancelled
+        try:
+            cookie = (login_browser if method == "browser" else login_manual)()
+        except PlaywrightError as e:
+            if "closed" not in str(e).lower():
+                raise
+            console.print("[yellow]Browser closed before login finished — try again.[/yellow]")
+            continue
+        if not test_cookie(cookie):
+            raise RuntimeError("Login failed the auth check after login.")
+        save_cookie(cookie)
+        return cookie
 
 
 def login() -> str:
