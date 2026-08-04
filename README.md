@@ -14,12 +14,19 @@ uvx --from git+https://github.com/sriv95/TACPE-csv-to-works tacpe
 
 ## Installation
 
+Using [uv](https://docs.astral.sh/uv/)
 ```bash
 uv tool install git+https://github.com/sriv95/TACPE-csv-to-works
-# or: pipx install git+https://github.com/sriv95/TACPE-csv-to-works
 ```
 
-Updating: re-run `uv tool install --force git+https://github.com/sriv95/TACPE-csv-to-works`.
+Using [pipx](https://pipx.pypa.io/)
+```bash
+pipx install git+https://github.com/sriv95/TACPE-csv-to-works
+```
+
+Updating: `uv tool install --force git+https://github.com/sriv95/TACPE-csv-to-works`.
+
+Uninstall: `uv tool uninstall tacpe-csv-to-works` (or `pipx uninstall tacpe-csv-to-works`).
 
 ## Usage
 
