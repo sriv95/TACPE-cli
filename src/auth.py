@@ -23,6 +23,11 @@ def save_cookie(cookie: str) -> None:
     COOKIE_FILE.write_text(cookie.strip() + "\n")
 
 
+def logout() -> None:
+    """Delete saved cookie file, if any."""
+    COOKIE_FILE.unlink(missing_ok=True)
+
+
 def load_cookie() -> str:
     """Read the previously saved cookie.
     Output: (str) raw Cookie header string; raises if none saved.

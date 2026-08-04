@@ -65,6 +65,7 @@ def list_courses(reg_year: int, reg_term: int) -> list[dict]:
 
 CHANGE_REG_TIME = object()
 CHECK_OVERLAP = object()
+LOGOUT = object()
 
 
 def select_course() -> tuple[int, str]:
@@ -89,6 +90,7 @@ def select_course() -> tuple[int, str]:
             questionary.Choice(f"Change academic term/year", value=CHANGE_REG_TIME)
         )
         choices.append(questionary.Choice("Check Overlap", value=CHECK_OVERLAP))
+        choices.append(questionary.Choice("Logout (remove Cookie)", value=LOGOUT))
 
         course_id = questionary.select(
             f"Select course [{reg_term}/{reg_year}]:", choices=choices, erase_when_done=True
@@ -103,6 +105,11 @@ def select_course() -> tuple[int, str]:
 
             check_overlap_all_courses(reg_year, reg_term)
             continue
+        if course_id is LOGOUT:
+            from src.auth import logout
+
+            logout()
+            raise UserCancelled
 
         selected = next(ta for ta in courses if ta["courseId"] == course_id)
         label = (
