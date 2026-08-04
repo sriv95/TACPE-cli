@@ -33,7 +33,9 @@ uv run python -m src.main
 3. **Works menu**:
    - View existing work entries for the course.
    - **Add works**:
-     - **Add a work** - enter date, task, start/end time for a single entry.
+     - **Add a work** - enter a date, then task/start/end time. At the summary,
+       choose Submit, or **Add more dates** to extend the same task/time to more
+       dates before submitting
      - **Add bulk works (.csv)** - import a CSV file
      - **Auto Find Slot** - given a date, work hours, and task, finds start times, then lets you pick one.
      - **Auto Find Slot (bulk .csv)** - same, from a CSV of multiple entries.
