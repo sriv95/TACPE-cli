@@ -35,6 +35,8 @@ uv run python -m src.main
    - **Add works**:
      - **Add a work** - enter date, task, start/end time for a single entry.
      - **Add bulk works (.csv)** - import a CSV file
+     - **Auto Find Slot** - given a date, work hours, and task, finds start times free of lunch (12:00-13:00), your enrolled-course timetable, and any existing TA work (across all your courses this term), then lets you pick one.
+     - **Auto Find Slot (bulk .csv)** - same, from a CSV of multiple entries.
 
 ### Bulk CSV format
 
@@ -53,6 +55,19 @@ Example:
 date,startTime,endTime,work
 2026-07-04,10:00,14:00,Grading Assignment 1
 ```
+
+### Auto Find Slot (bulk) CSV format
+
+Required columns `date`, `workHour`, `work`; optional `startTime` as a minimum-start filter:
+
+```csv
+date,workHour,work,startTime
+2026-07-04,3,Grading Assignment 1,
+```
+
+### Enrolled Course Time Table
+
+First run of Auto Find Slot offers to edit your weekly course schedule (`.cache/.timetable`, gitignored) - name, day of week, start/end time - used to avoid scheduling TA work over your classes.
 
 ## Development
 
