@@ -60,7 +60,16 @@ date,startTime,endTime,work
 
 ### Auto Find Slot (bulk) CSV format
 
-Required columns `date`, `workHour`, `work`; optional `startTime` as a minimum-start filter:
+Required columns (extra columns are ignored):
+
+| column      | format                                              |
+|-------------|------------------------------------------------------|
+| `date`      | `YYYY-MM-DD`                                          |
+| `workHour`  | hours as a number, multiple of `0.5` (e.g. `2`, `2.5`) |
+| `work`      | task description                                      |
+| `startTime` | (optional) minimum start time, `HH:MM`/`HHMM`/`H`/`H.mm` - blank to skip |
+
+Example:
 
 ```csv
 date,workHour,work,startTime
