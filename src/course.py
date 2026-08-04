@@ -64,10 +64,11 @@ def list_courses(reg_year: int, reg_term: int) -> list[dict]:
 
 
 CHANGE_REG_TIME = object()
+CHECK_OVERLAP = object()
 
 
 def select_course() -> tuple[int, str]:
-    """Prompt user to pick a course/section, with an option to change term.
+    """Prompt user to pick a course/section, with options to change term or check overlaps.
     Output: (tuple[int, str]) (courseId, display label).
     """
     reg_year, reg_term = current_reg_time()
@@ -87,6 +88,7 @@ def select_course() -> tuple[int, str]:
         choices.append(
             questionary.Choice(f"Change academic term/year", value=CHANGE_REG_TIME)
         )
+        choices.append(questionary.Choice("Check Overlap", value=CHECK_OVERLAP))
 
         course_id = questionary.select(
             f"Select course [{reg_term}/{reg_year}]:", choices=choices, erase_when_done=True
@@ -95,6 +97,11 @@ def select_course() -> tuple[int, str]:
             raise UserCancelled
         if course_id is CHANGE_REG_TIME:
             reg_year, reg_term = select_reg_time()
+            continue
+        if course_id is CHECK_OVERLAP:
+            from src.auto_slot import check_overlap_all_courses
+
+            check_overlap_all_courses(reg_year, reg_term)
             continue
 
         selected = next(ta for ta in courses if ta["courseId"] == course_id)

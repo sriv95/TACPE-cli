@@ -123,8 +123,9 @@ def edit_timetable_menu() -> None:
         save_timetable(entries)
 
 
-def timetable_gate() -> list[dict]:
-    """Show current timetable and offer Next/Edit before an Auto Find Slot run.
+def timetable_gate(proceed_label: str = "Next") -> list[dict]:
+    """Show current timetable and offer proceed/Edit before an Auto Find Slot or overlap-check run.
+    Input: proceed_label (str) - text for the proceed choice.
     Output: (list[dict]) the timetable to use (re-read after any edits).
     """
     entries = load_timetable()
@@ -138,7 +139,7 @@ def timetable_gate() -> list[dict]:
 
     choice = questionary.select(
         "Time Table:",
-        choices=[questionary.Choice("Next", value="next"), questionary.Choice("Edit", value="edit")],
+        choices=[questionary.Choice(proceed_label, value="next"), questionary.Choice("Edit", value="edit")],
         erase_when_done=True,
     ).ask()
     if choice is None:

@@ -55,6 +55,48 @@ def fetch_all_course_works() -> list[dict]:
     return works
 
 
+def check_overlap_all_courses(reg_year: int, reg_term: int) -> None:
+    """Timetable gate, then report overlapping work entries across every course in a term.
+    Input: reg_year (int), reg_term (int).
+    """
+    timetable = timetable_gate(proceed_label="Check")
+
+    courses = list_courses(reg_year, reg_term)
+    entries = []
+    for c in courses:
+        label = f"{c['course']['courseTemplate']['courseNo']} | Sec:{c['course']['section']:03d}"
+        for w in fetch_works(c["courseId"]):
+            start, end = w["time"].split("-")
+            entries.append(
+                (format_date(w["date"]), minutes(f"{start[:2]}:{start[2:]}"), minutes(f"{end[:2]}:{end[2:]}"), label, w["work"])
+            )
+
+    conflicts = []
+    for i in range(len(entries)):
+        d1, s1, e1, l1, w1 = entries[i]
+        for d2, s2, e2, l2, w2 in entries[i + 1 :]:
+            if d1 == d2 and s1 < e2 and s2 < e1:
+                conflicts.append(
+                    f"{d1}: [{l1}] {w1} ({_fmt(s1)}-{_fmt(e1)}) overlaps [{l2}] {w2} ({_fmt(s2)}-{_fmt(e2)})"
+                )
+        weekday = datetime.strptime(d1, "%Y-%m-%d").weekday()
+        for te in entries_for_weekday(timetable, weekday):
+            ts, te_end = minutes(te["start"]), minutes(te["end"])
+            if s1 < te_end and ts < e1:
+                conflicts.append(
+                    f"{d1}: [{l1}] {w1} ({_fmt(s1)}-{_fmt(e1)}) overlaps timetable: {te['name']} ({te['start']}-{te['end']})"
+                )
+
+    console.print()
+    if conflicts:
+        console.print(f"[bold red]Found {len(conflicts)} overlap(s):[/bold red]")
+        for c in conflicts:
+            console.print(f"  [yellow]{c}[/yellow]")
+    else:
+        console.print("[bold green]No overlaps found.[/bold green]")
+    console.print()
+
+
 def _busy_ranges(
     date_str: str, timetable: list[dict], all_works: list[dict], extra_busy: list[tuple[int, int]] = ()
 ) -> list[tuple[int, int, str]]:
