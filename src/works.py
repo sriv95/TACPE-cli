@@ -417,6 +417,8 @@ def summarize_entry(entry: dict) -> str:
     )
     if entry["hours"] % 1 != 0:
         summary += f"  Warning: {entry['hours']:g} hrs is not a whole number of hours.\n"
+    if entry["hours"] > 4:
+        summary += f"  Warning: {entry['hours']:g} hrs exceeds max 4 hours.\n"
     if overlaps_lunch(entry["time_start"], entry["time_end"]):
         summary += "  Warning: overlaps lunch break (12:00-13:00).\n"
     return summary
