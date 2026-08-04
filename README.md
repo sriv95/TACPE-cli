@@ -6,6 +6,8 @@ CLI that adds TA work entries into the CPE TA site, single or in bulk from a CSV
 
 - Python >=3.14
 - [uv](https://docs.astral.sh/uv/) (provides `uvx`) or [pipx](https://pipx.pypa.io/)
+- [Playwright](https://playwright.dev/python/) (optional for browser login )
+`uvx playwright install chromium`
 
 ## One-time (Without install)
 ```bash
