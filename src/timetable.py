@@ -131,12 +131,11 @@ def timetable_gate(proceed_label: str = "Next") -> list[dict]:
     while True:
         entries = load_timetable()
         if entries:
-            console.print("\n[bold]Enrolled Course Time Table[/bold]")
-            for e in entries:
-                console.print(f"  {_row_label(e)}")
-            console.print()
+            instruction = "\n  Enrolled Course Time Table:\n" + "\n".join(
+                f"    {_row_label(e)}" for e in entries
+            ) + "\n"
         else:
-            console.print("\n[yellow]No timetable entries yet.[/yellow]\n")
+            instruction = "\n  No timetable entries yet.\n"
 
         choice = questionary.select(
             "Time Table:",
@@ -144,6 +143,7 @@ def timetable_gate(proceed_label: str = "Next") -> list[dict]:
                 questionary.Choice(proceed_label, value="next"),
                 questionary.Choice("Edit Time Table", value="edit"),
             ],
+            instruction=instruction,
             erase_when_done=True,
         ).ask()
         if choice is None:
