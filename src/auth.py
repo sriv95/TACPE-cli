@@ -59,11 +59,18 @@ def login_browser() -> str:
     """Open a real browser for CMU Entra ID login and capture the session cookies.
     Output: (str) assembled Cookie header string.
     """
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import Error as PlaywrightError, sync_playwright
 
     with console.status("Opening browser") as status:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=False)
+            try:
+                browser = p.chromium.launch(headless=False)
+            except PlaywrightError as e:
+                if "Executable doesn't exist" not in str(e):
+                    raise
+                raise SystemExit(
+                    "Browser not installed. Run: uvx playwright install chromium"
+                ) from None
             context = browser.new_context()
             page = context.new_page()
             page.goto(BASE_URL)
