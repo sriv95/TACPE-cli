@@ -127,7 +127,7 @@ def find_free_slots(
 
 
 def default_pick(candidates: list[str]) -> str | None:
-    """Pick the highlighted default among free candidates: 8:00, else 13:00, else earliest.
+    """Pick the highlighted default among free candidates: 8:00, else 13:00, else latest.
     Input: candidates (list[str]) - ascending 'HH:MM' free start times.
     Output: (str | None) default candidate, or None if candidates is empty.
     """
@@ -135,7 +135,7 @@ def default_pick(candidates: list[str]) -> str | None:
         return "08:00"
     if "13:00" in candidates:
         return "13:00"
-    return candidates[0] if candidates else None
+    return candidates[-1] if candidates else None
 
 
 def _validate_duration(text: str) -> bool | str:
@@ -411,6 +411,7 @@ def _demo() -> None:
     assert default_pick(candidates) == "13:00"  # 08:00 busy, so falls to 13:00
 
     assert default_pick([]) is None
+    assert default_pick(["00:00", "00:30", "05:00"]) == "05:00"  # neither 08:00 nor 13:00 free, falls to latest
 
     lunch_check = find_free_slots("2026-08-04", 1, [], [])
     assert "11:00" in lunch_check
