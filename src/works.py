@@ -19,6 +19,7 @@ console = Console()
 
 ADD_WORKS = object()
 MORE_OPTIONS = object()
+BACK_TO_COURSES = object()
 EXIT_APP = object()
 
 BANGKOK = ZoneInfo("Asia/Bangkok")
@@ -117,12 +118,13 @@ def view_works(course_id: int, course_label: str) -> None:
         choices.append(questionary.Separator())
         choices.append(questionary.Choice("Add works", value=ADD_WORKS))
         choices.append(questionary.Choice("More Options", value=MORE_OPTIONS))
+        choices.append(questionary.Choice("Back to select courses", value=BACK_TO_COURSES))
         choices.append(questionary.Choice("Exit App", value=EXIT_APP))
 
         selected = questionary.select(
             "Works:",
             choices=choices,
-            default=choices[-3],
+            default=choices[-4],
             instruction=f"\n  Course: {course_label}\n",
             erase_when_done=True,
         ).ask()
@@ -132,6 +134,8 @@ def view_works(course_id: int, course_label: str) -> None:
             add_works_menu(course_id)
         elif selected is MORE_OPTIONS:
             more_options_menu(course_id, works)
+        elif selected is BACK_TO_COURSES:
+            return
         elif selected is EXIT_APP:
             sys.exit(0)
         else:
