@@ -57,22 +57,27 @@ def fetch_all_course_works() -> list[dict]:
 
 def _busy_ranges(
     date_str: str, timetable: list[dict], all_works: list[dict], extra_busy: list[tuple[int, int]] = ()
-) -> list[tuple[int, int]]:
+) -> list[tuple[int, int, str]]:
     """Build the list of busy minute ranges (lunch + timetable + existing works) for a date.
     Input: date_str (str) - YYYY-MM-DD, timetable (list[dict]), all_works (list[dict]),
         extra_busy (list[tuple]) - extra ranges to also treat as busy.
-    Output: (list[tuple[int, int]]) (start_min, end_min) ranges.
+    Output: (list[tuple[int, int, str]]) (start_min, end_min, label) ranges.
     """
     weekday = datetime.strptime(date_str, "%Y-%m-%d").weekday()
 
-    busy = [LUNCH]
-    busy.extend((minutes(e["start"]), minutes(e["end"])) for e in entries_for_weekday(timetable, weekday))
+    busy = [(*LUNCH, "lunch break")]
+    busy.extend(
+        (minutes(e["start"]), minutes(e["end"]), f"timetable: {e['name']}")
+        for e in entries_for_weekday(timetable, weekday)
+    )
     for w in all_works:
         if format_date(w["date"]) != date_str:
             continue
         start, end = w["time"].split("-")
-        busy.append((int(start[:2]) * 60 + int(start[2:]), int(end[:2]) * 60 + int(end[2:])))
-    busy.extend(extra_busy)
+        busy.append(
+            (int(start[:2]) * 60 + int(start[2:]), int(end[:2]) * 60 + int(end[2:]), f"existing work: {w['work']}")
+        )
+    busy.extend((s, e, "another row in this run") for s, e in extra_busy)
     return busy
 
 
@@ -82,13 +87,13 @@ def slots_with_overlap(
     timetable: list[dict],
     all_works: list[dict],
     extra_busy: list[tuple[int, int]] = (),
-) -> list[tuple[str, bool]]:
+) -> list[tuple[str, list[str]]]:
     """Enumerate every start-time candidate for a duration on a date (30-min grid, 00:00-23:30),
-    each flagged whether it overlaps lunch/timetable/existing works.
+    each with the reasons (if any) it overlaps lunch/timetable/existing works.
     Input: date_str (str) - YYYY-MM-DD, duration_hours (float), timetable (list[dict]),
         all_works (list[dict]) - work entries across courses, extra_busy (list[tuple]) -
         extra minute ranges to also treat as busy (e.g. already-placed rows in this run).
-    Output: (list[tuple[str, bool]]) (start 'HH:MM', has_overlap), ascending.
+    Output: (list[tuple[str, list[str]]]) (start 'HH:MM', overlap reasons - empty if free), ascending.
     """
     busy = _busy_ranges(date_str, timetable, all_works, extra_busy)
 
@@ -97,8 +102,12 @@ def slots_with_overlap(
     t = DAY_START
     while t + duration_min <= DAY_END:
         end_t = t + duration_min
-        overlap = any(t < b_end and end_t > b_start for b_start, b_end in busy)
-        slots.append((_fmt(t), overlap))
+        reasons = [
+            f"{label} ({_fmt(b_start)}-{_fmt(b_end)})"
+            for b_start, b_end, label in busy
+            if t < b_end and end_t > b_start
+        ]
+        slots.append((_fmt(t), reasons))
         t += 30
     return slots
 
@@ -114,7 +123,7 @@ def find_free_slots(
     Input: same as slots_with_overlap.
     Output: (list[str]) free 'HH:MM' start candidates, ascending.
     """
-    return [t for t, overlap in slots_with_overlap(date_str, duration_hours, timetable, all_works, extra_busy) if not overlap]
+    return [t for t, reasons in slots_with_overlap(date_str, duration_hours, timetable, all_works, extra_busy) if not reasons]
 
 
 def default_pick(candidates: list[str]) -> str | None:
@@ -160,11 +169,11 @@ def _filter_by_min_start(candidates: list[str], min_start: str | None) -> list[s
 
 
 def _filter_slots_by_min_start(
-    slots: list[tuple[str, bool]], min_start: str | None
-) -> list[tuple[str, bool]]:
-    """Filter (time, overlap) slots to >= min_start, falling back to the full list if that empties it.
-    Input: slots (list[tuple[str, bool]]), min_start (str | None) - parsed 'HH:MM' or None.
-    Output: (list[tuple[str, bool]]) filtered (or original) slots.
+    slots: list[tuple[str, list[str]]], min_start: str | None
+) -> list[tuple[str, list[str]]]:
+    """Filter (time, overlap reasons) slots to >= min_start, falling back to the full list if that empties it.
+    Input: slots (list[tuple[str, list[str]]]), min_start (str | None) - parsed 'HH:MM' or None.
+    Output: (list[tuple[str, list[str]]]) filtered (or original) slots.
     """
     if not min_start:
         return slots
@@ -227,16 +236,16 @@ def auto_find_slot(course_id: int) -> None:
         console.print("[yellow]Could not parse minimum start time - ignoring it.[/yellow]")
     all_slots = _filter_slots_by_min_start(all_slots, min_start)
 
-    free_times = [t for t, overlap in all_slots if not overlap]
+    free_times = [t for t, reasons in all_slots if not reasons]
     default = default_pick(free_times) if free_times else all_slots[0][0]
 
     choices = [
         questionary.Choice(
             f"{c} - {_fmt(minutes(c) + round(duration * 60))} ({duration:g} hrs)"
-            + ("  [!] overlaps timetable/lunch/existing work" if overlap else ""),
+            + (f"  [!] overlaps {', '.join(reasons)}" if reasons else ""),
             value=c,
         )
-        for c, overlap in all_slots
+        for c, reasons in all_slots
     ]
     time_start = questionary.select(
         "Auto Find Slot - Choose start time:",
@@ -251,8 +260,9 @@ def auto_find_slot(course_id: int) -> None:
 
     entry = {"date": date_str, "work": work, "time_start": time_start, "time_end": time_end, "hours": duration}
 
-    if time_start not in free_times:
-        console.print("[yellow]Warning: chosen time overlaps your timetable/lunch/existing work.[/yellow]")
+    chosen_reasons = next((reasons for c, reasons in all_slots if c == time_start), [])
+    if chosen_reasons:
+        console.print(f"[yellow]Warning: chosen time overlaps {', '.join(chosen_reasons)}.[/yellow]")
 
     confirmed = questionary.confirm(
         "Submit this work? (Y/n)", instruction=summarize_entry(entry), erase_when_done=True
@@ -385,7 +395,13 @@ def auto_find_slot_bulk(course_id: int) -> None:
 def _demo() -> None:
     """Self-check: slot enumeration/overlap and default-pick priority (no network)."""
     timetable = [{"name": "Course", "weekday": 1, "start": "09:00", "end": "10:30"}]
-    works = [{"date": "2026-08-04T00:00:00.000Z", "time": "1000-1200"}]
+    works = [{"date": "2026-08-04T00:00:00.000Z", "time": "1000-1200", "work": "Grading"}]
+
+    slots = slots_with_overlap("2026-08-04", 2, timetable, works)
+    reasons = dict(slots)
+    assert reasons["08:00"] == ["timetable: Course (09:00-10:30)"]
+    assert reasons["10:00"] == ["timetable: Course (09:00-10:30)", "existing work: Grading (10:00-12:00)"]
+    assert reasons["12:00"] == ["lunch break (12:00-13:00)"]
 
     candidates = find_free_slots("2026-08-04", 2, timetable, works)
     assert "07:00" in candidates
