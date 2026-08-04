@@ -9,6 +9,7 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "questionary>=2.1.1",
     "rich>=15.0.0",
+    "tzdata>=2025.2; sys_platform == 'win32'",
 ]
 
 [project.scripts]
