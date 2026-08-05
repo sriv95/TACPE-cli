@@ -7,7 +7,7 @@ git clone https://github.com/sriv95/TACPE-csv-to-works
 cd TACPE-csv-to-works
 uv sync                              # install dependencies
 uv run playwright install chromium   # browser for the Browser login method
-uv run python -m src.main            # run the CLI
+uv run tacpe                         # run the CLI
 ```
 
 ## Layout
