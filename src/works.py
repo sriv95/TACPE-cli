@@ -2,11 +2,9 @@
 
 import json
 import re
-import subprocess
 import sys
 import webbrowser
 from datetime import datetime, timedelta
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import questionary
@@ -218,28 +216,10 @@ def more_options_menu(course_id: int, works: list[dict]) -> None:
 
 
 def open_in_browser(course_id: int) -> None:
-    """Open the work report page in a detached Playwright Chromium window with the saved session cookie injected,
-    else the default browser. Fire-and-forget: does not block the CLI.
+    """Open the work report page in the default browser.
     Input: course_id (int).
     """
-    url = f"{BASE_URL}/student/workReport/{course_id}"
-    chromium_installed = False
-    try:
-        from playwright.sync_api import sync_playwright
-
-        with sync_playwright() as p:
-            chromium_installed = Path(p.chromium.executable_path).exists()
-    except ImportError:
-        pass
-
-    if chromium_installed:
-        subprocess.Popen(
-            [sys.executable, "-m", "src.browser_launcher", url],
-            start_new_session=True,
-            stderr=subprocess.DEVNULL,
-        )
-    else:
-        webbrowser.open(url)
+    webbrowser.open(f"{BASE_URL}/student/workReport/{course_id}")
 
 
 def delete_multiple_works(course_id: int, works: list[dict]) -> None:
