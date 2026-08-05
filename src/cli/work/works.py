@@ -219,7 +219,7 @@ def more_options_menu(course_id: int, works: list[dict]) -> None:
         choices=[
             questionary.Choice("Delete multiple", value="delete_multiple"),
             questionary.Choice("Open in Browser", value="open_browser"),
-            questionary.Choice("Back", value="back"),
+            questionary.Choice("Back to Works", value="back"),
         ],
         erase_when_done=True,
     ))
@@ -277,7 +277,7 @@ def work_entry_menu(course_id: int, work: dict) -> None:
             questionary.Choice("Edit", value="edit"),
             questionary.Choice("Clone", value="clone"),
             questionary.Choice("Delete", value="delete"),
-            questionary.Choice("Back", value="back"),
+            questionary.Choice("Back to Works", value="back"),
         ],
         instruction=f"\n  {format_date(work['date'])} | {format_time(work['time'])} | {work['work']}\n",
         erase_when_done=True,
@@ -301,7 +301,7 @@ def add_works_menu(course_id: int) -> None:
             questionary.Choice("2. Add bulk works (.csv)", value="bulk"),
             questionary.Choice("3. Auto Find Slot", value="auto"),
             questionary.Choice("4. Auto Find Slot (bulk .csv)", value="auto_bulk"),
-            questionary.Choice("Back", value="back"),
+            questionary.Choice("Back to Works", value="back"),
         ],
         erase_when_done=True,
     ))
@@ -576,7 +576,7 @@ def _prompt_more_dates(selected_date: str, today: str) -> list[str]:
             questionary.Choice("Every week until date", value="weekly"),
             questionary.Choice("Multiple dates (multi-select)", value="multi"),
             questionary.Choice("Single date", value="single"),
-            questionary.Choice("Back", value="back"),
+            questionary.Choice("Back to Submit", value="back"),
         ],
         erase_when_done=True,
     ))

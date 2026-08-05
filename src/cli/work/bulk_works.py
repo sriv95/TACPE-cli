@@ -35,7 +35,7 @@ def select_csv_path(title: str = "Add bulk works - CSV file:", instruction: str 
         choices=[
             questionary.Choice("1. From file... (browse)", value="browse"),
             questionary.Choice("2. From Path (type path)", value="path"),
-            questionary.Choice("Back", value="back"),
+            questionary.Choice("Back to Add Works", value="back"),
         ],
         instruction=instruction,
         erase_when_done=True,

@@ -97,7 +97,7 @@ def edit_timetable_menu() -> None:
         choices = [questionary.Choice(_row_label(e), value=i) for i, e in enumerate(entries)]
         choices.append(questionary.Separator())
         choices.append(questionary.Choice("Add Time", value=ADD_TIME))
-        choices.append(questionary.Choice("Back", value=BACK))
+        choices.append(questionary.Choice("Back to Time Table", value=BACK))
 
         selected = ask(questionary.select("Edit Time Table:", choices=choices, erase_when_done=True))
         if selected is BACK:
