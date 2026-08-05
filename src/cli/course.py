@@ -1,6 +1,7 @@
 """Course selection: fetch latest reg term, list TA courses, prompt user to pick one."""
 
 import json
+import sys
 
 import questionary
 from rich.console import Console
@@ -11,6 +12,9 @@ from src.helper.prompt import ask
 from src.func.request import request
 
 console = Console()
+
+BACK = object()
+EXIT_APP = object()
 
 
 def fetch_reg_times() -> list[dict]:
@@ -30,8 +34,9 @@ def current_reg_time() -> tuple[int, int]:
     return current["year"], current["term"]
 
 
-def select_reg_time() -> tuple[int, int]:
+def select_reg_time(reg_year: int, reg_term: int) -> tuple[int, int]:
     """Prompt user to pick a year/term, defaulting to the active one.
+    Input: reg_year (int), reg_term (int) - currently selected term, kept if user picks Back.
     Output: (tuple[int, int]) (year, term).
     """
     reg_times = fetch_reg_times()
@@ -43,12 +48,15 @@ def select_reg_time() -> tuple[int, int]:
         )
         for r in reg_times
     ]
+    choices.append(questionary.Separator())
+    choices.append(questionary.Choice("Back to select courses", value=BACK))
     current = next((r for r in reg_times if r["inUse"]), None)
     default = (current["year"], current["term"]) if current else None
 
-    return ask(questionary.select(
+    selected = ask(questionary.select(
         "Select year/term:", choices=choices, default=default, erase_when_done=True
     ))
+    return (reg_year, reg_term) if selected is BACK else selected
 
 
 def list_courses(reg_year: int, reg_term: int) -> list[dict]:
@@ -89,12 +97,13 @@ def select_course() -> tuple[int, str]:
         )
         choices.append(questionary.Choice("Check Overlap", value=CHECK_OVERLAP))
         choices.append(questionary.Choice("Logout (remove Cookie)", value=LOGOUT))
+        choices.append(questionary.Choice("Exit App", value=EXIT_APP))
 
         course_id = ask(questionary.select(
             f"Select course [{reg_term}/{reg_year}]:", choices=choices, erase_when_done=True
         ))
         if course_id is CHANGE_REG_TIME:
-            reg_year, reg_term = select_reg_time()
+            reg_year, reg_term = select_reg_time(reg_year, reg_term)
             continue
         if course_id is CHECK_OVERLAP:
             from src.cli.work.auto_slot import check_overlap_all_courses
@@ -106,6 +115,8 @@ def select_course() -> tuple[int, str]:
 
             logout()
             raise UserCancelled
+        if course_id is EXIT_APP:
+            sys.exit(0)
 
         selected = next(ta for ta in courses if ta["courseId"] == course_id)
         label = (
