@@ -36,7 +36,8 @@ def main(url: str) -> None:
         page = context.new_page()
         page.goto(url)
         page.wait_for_event("close", timeout=0)
-        browser.close()
+        if browser.is_connected():
+            browser.close()
 
 
 def _demo() -> None:
