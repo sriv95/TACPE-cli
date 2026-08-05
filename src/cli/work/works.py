@@ -11,6 +11,7 @@ import questionary
 from rich.console import Console
 
 from src.func.const import ADD_WORK_URL, BASE_URL, DELETE_WORK_URL, EDIT_WORK_URL, WORK_REPORT_URL
+from src.helper.batch import run_batch
 from src.helper.prompt import ask, confirm_or_cancel
 from src.func.request import post_json, request
 
@@ -132,6 +133,16 @@ def delete_work(course_id: int, work_id: str) -> None:
     post_json(DELETE_WORK_URL, {"courseId": course_id, "workId": work_id})
 
 
+def format_entry_line(entry: dict, with_hours: bool = True) -> str:
+    """Format one entry as 'date | start - end (N hrs) | work' for print lines.
+    Input: entry (dict) - date/time_start/time_end/work, optional hours,
+        with_hours (bool) - include the '(N hrs)' segment.
+    Output: (str).
+    """
+    hours_part = f" ({entry['hours']:g} hrs)" if with_hours else ""
+    return f"{entry['date']} | {entry['time_start']} - {entry['time_end']}{hours_part} | {entry['work']}"
+
+
 def format_date(date_str: str) -> str:
     """Convert an API UTC date to a Bangkok-local display date.
     Input: date_str (str) - ISO UTC timestamp.
@@ -250,16 +261,9 @@ def delete_multiple_works(course_id: int, works: list[dict]) -> None:
         return
 
     by_id = {w["_id"]: w for w in works}
-    deleted, failed = 0, 0
-    for work_id in selected:
-        try:
-            delete_work(course_id, work_id)
-        except Exception as e:
-            failed += 1
-            console.print(f"[red]Failed to delete {by_id[work_id]['work']}: {e}[/red]")
-            continue
-        deleted += 1
-
+    deleted, failed = run_batch(
+        selected, lambda wid: delete_work(course_id, wid), lambda wid: by_id[wid]["work"], "delete"
+    )
     console.print(f"[bold green]Deleted {deleted} work(s).[/bold green]" + (f" [red]{failed} failed.[/red]" if failed else ""))
 
 
@@ -618,20 +622,12 @@ def add_works(course_id: int) -> None:
             break
         dates = list(set(dates) | set(_prompt_more_dates(selected_date, today)))
 
-    added, failed = 0, 0
-    for date_str in dates:
-        entry = {"date": date_str, **task_time}
-        try:
-            submit_work(course_id, entry)
-        except Exception as e:
-            failed += 1
-            console.print(f"[red]Failed to add {date_str}: {e}[/red]")
-            continue
-        added += 1
-        console.print(
-            f"[bold green]Added:[/bold green] {date_str} | {task_time['time_start']} - {task_time['time_end']} "
-            f"({task_time['hours']:g} hrs) | {task_time['work']}"
-        )
+    def _announce(date_str):
+        console.print(f"[bold green]Added:[/bold green] {format_entry_line({'date': date_str, **task_time})}")
+
+    added, failed = run_batch(
+        dates, lambda d: submit_work(course_id, {"date": d, **task_time}), lambda d: d, "add", _announce
+    )
 
     if len(dates) > 1:
         summary_line = f"[bold green]Added {added} work(s).[/bold green]"
@@ -657,10 +653,7 @@ def edit_work_entry(course_id: int, work: dict) -> None:
         return
 
     edit_work(course_id, work["_id"], entry)
-    console.print(
-        f"[bold green]Updated:[/bold green] {entry['date']} | {entry['time_start']} - {entry['time_end']} "
-        f"({entry['hours']:g} hrs) | {entry['work']}"
-    )
+    console.print(f"[bold green]Updated:[/bold green] {format_entry_line(entry)}")
 
 
 def clone_work_entry(course_id: int, work: dict) -> None:
@@ -683,10 +676,7 @@ def clone_work_entry(course_id: int, work: dict) -> None:
         return
 
     submit_work(course_id, entry)
-    console.print(
-        f"[bold green]Added:[/bold green] {entry['date']} | {entry['time_start']} - {entry['time_end']} "
-        f"({entry['hours']:g} hrs) | {entry['work']}"
-    )
+    console.print(f"[bold green]Added:[/bold green] {format_entry_line(entry)}")
 
 
 def delete_work_entry(course_id: int, work: dict) -> None:

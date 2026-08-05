@@ -7,11 +7,13 @@ from rich.console import Console
 
 from src.cli.work.bulk_works import read_csv_rows, select_csv_path
 from src.cli.course import current_reg_time, list_courses
+from src.helper.batch import run_batch
 from src.helper.prompt import ask, confirm_or_cancel
 from src.cli.work.timetable import entries_for_weekday, timetable_gate
 from src.cli.work.works import (
     fetch_works,
     format_date,
+    format_entry_line,
     minutes,
     parse_time,
     split_time,
@@ -281,10 +283,7 @@ def auto_find_slot(course_id: int) -> None:
         return
 
     submit_work(course_id, entry)
-    console.print(
-        f"[bold green]Added:[/bold green] {entry['date']} | {entry['time_start']} - {entry['time_end']} "
-        f"({entry['hours']:g} hrs) | {entry['work']}"
-    )
+    console.print(f"[bold green]Added:[/bold green] {format_entry_line(entry)}")
 
 
 def _validate_bulk_row(row: dict, line: int) -> dict | None:
@@ -376,19 +375,21 @@ def auto_find_slot_bulk(course_id: int) -> None:
 
     console.print("\n[bold]Summary[/bold]")
     for e in entries:
-        console.print(f"{e['date']} | {e['time_start']} - {e['time_end']} ({e['hours']:g} hrs) | {e['work']}")
+        console.print(format_entry_line(e))
     total_hours = sum(e["hours"] for e in entries)
     console.print(f"\n[bold]Total: {total_hours:g} hrs across {len(entries)} work(s)[/bold]\n")
 
     if not confirm_or_cancel(f"Submit {len(entries)} valid work(s)?"):
         return
 
-    for entry in entries:
-        submit_work(course_id, entry)
-        console.print(
-            f"[bold green]Added:[/bold green] {entry['date']} | {entry['time_start']} - "
-            f"{entry['time_end']} | {entry['work']}"
-        )
+    added, failed = run_batch(
+        entries,
+        lambda e: submit_work(course_id, e),
+        lambda e: e["date"],
+        "add",
+        lambda e: console.print(f"[bold green]Added:[/bold green] {format_entry_line(e)}"),
+    )
+    console.print(f"[bold green]Added {added} work(s).[/bold green]" + (f" [red]{failed} failed.[/red]" if failed else ""))
 
 
 def _demo() -> None:

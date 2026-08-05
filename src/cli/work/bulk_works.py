@@ -5,10 +5,11 @@ import csv
 import questionary
 from rich.console import Console
 
+from src.helper.batch import run_batch
 from src.helper.exceptions import UserCancelled
 from src.helper.file import browse_file
 from src.helper.prompt import ask, confirm_or_cancel
-from src.cli.work.works import minutes, overlaps_lunch, parse_time, submit_work, validate_date, validate_work
+from src.cli.work.works import format_entry_line, minutes, overlaps_lunch, parse_time, submit_work, validate_date, validate_work
 
 console = Console()
 
@@ -129,7 +130,7 @@ def add_bulk_works(course_id: int) -> None:
 
     console.print("\n[bold]Summary[/bold]")
     for e in entries:
-        line = f"{e['date']} | {e['time_start']} - {e['time_end']} ({e['hours']:g} hrs) | {e['work']}"
+        line = format_entry_line(e)
         if e["hours"] % 1 != 0:
             line += "  [yellow][!] not a whole number of hours[/yellow]"
         if overlaps_lunch(e["time_start"], e["time_end"]):
@@ -141,18 +142,11 @@ def add_bulk_works(course_id: int) -> None:
     if not confirm_or_cancel(f"Submit {len(entries)} valid work(s)?"):
         return
 
-    added, failed = 0, 0
-    for entry in entries:
-        try:
-            submit_work(course_id, entry)
-        except Exception as e:
-            failed += 1
-            console.print(f"[red]Failed to add {entry['date']}: {e}[/red]")
-            continue
-        added += 1
-        console.print(
-            f"[bold green]Added:[/bold green] {entry['date']} | {entry['time_start']} - "
-            f"{entry['time_end']} | {entry['work']}"
-        )
-
+    added, failed = run_batch(
+        entries,
+        lambda e: submit_work(course_id, e),
+        lambda e: e["date"],
+        "add",
+        lambda e: console.print(f"[bold green]Added:[/bold green] {format_entry_line(e, with_hours=False)}"),
+    )
     console.print(f"[bold green]Added {added} work(s).[/bold green]" + (f" [red]{failed} failed.[/red]" if failed else ""))
