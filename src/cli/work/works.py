@@ -141,16 +141,23 @@ def format_date(date_str: str) -> str:
     return dt.strftime("%Y-%m-%d")
 
 
+def split_time(time_str: str) -> tuple[str, str]:
+    """Split an API time range into normalized HH:MM start/end.
+    Input: time_str (str) - HHMM-HHMM.
+    Output: (tuple[str, str]) (start, end) as 'HH:MM'.
+    """
+    start, end = time_str.split("-")
+    return f"{start[:2]}:{start[2:]}", f"{end[:2]}:{end[2:]}"
+
+
 def format_time(time_str: str) -> str:
     """Render API time range for display.
     Input: time_str (str) - HHMM-HHMM.
     Output: (str) 'HH:MM - HH:MM (N hrs)'.
     """
-    start, end = time_str.split("-")
-    start_min = int(start[:2]) * 60 + int(start[2:])
-    end_min = int(end[:2]) * 60 + int(end[2:])
-    hours = (end_min - start_min) / 60
-    return f"{start[:2]}:{start[2:]} - {end[:2]}:{end[2:]} ({hours:g} hrs)"
+    start, end = split_time(time_str)
+    hours = (minutes(end) - minutes(start)) / 60
+    return f"{start} - {end} ({hours:g} hrs)"
 
 
 def view_works(course_id: int, course_label: str) -> None:
@@ -637,12 +644,12 @@ def edit_work_entry(course_id: int, work: dict) -> None:
     """Prompt with prefilled values, show summary/warnings, confirm, and submit an edit.
     Input: course_id (int), work (dict) - the existing work entry.
     """
-    start, end = work["time"].split("-")
+    time_start, time_end = split_time(work["time"])
     defaults = {
         "date": format_date(work["date"]),
         "work": work["work"],
-        "time_start": f"{start[:2]}:{start[2:]}",
-        "time_end": f"{end[:2]}:{end[2:]}",
+        "time_start": time_start,
+        "time_end": time_end,
     }
     entry = _prompt_work_entry(label="Edit Work", defaults=defaults)
 
@@ -660,17 +667,15 @@ def clone_work_entry(course_id: int, work: dict) -> None:
     """Prompt for a new date, reuse task/time from an existing entry, confirm, and submit.
     Input: course_id (int), work (dict) - the existing work entry to clone.
     """
-    start, end = work["time"].split("-")
+    time_start, time_end = split_time(work["time"])
     date_str = ask(questionary.text(
         "Clone Work - Enter Date (YYYY-MM-DD):",
         default=datetime.now(BANGKOK).strftime("%Y-%m-%d"),
-        instruction=f"\n  Task: {work['work']}\n  Time: {start[:2]}:{start[2:]} - {end[:2]}:{end[2:]}\n",
+        instruction=f"\n  Task: {work['work']}\n  Time: {time_start} - {time_end}\n",
         validate=validate_date,
         erase_when_done=True,
     ))
 
-    time_start = f"{start[:2]}:{start[2:]}"
-    time_end = f"{end[:2]}:{end[2:]}"
     hours = (minutes(time_end) - minutes(time_start)) / 60
     entry = {"date": date_str, "work": work["work"], "time_start": time_start, "time_end": time_end, "hours": hours}
 

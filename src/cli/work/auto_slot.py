@@ -1,12 +1,11 @@
 """Auto Find Slot: find TA-work start times free of lunch, timetable, and existing works."""
 
-import csv
 from datetime import datetime
 
 import questionary
 from rich.console import Console
 
-from src.cli.work.bulk_works import select_csv_path
+from src.cli.work.bulk_works import read_csv_rows, select_csv_path
 from src.cli.course import current_reg_time, list_courses
 from src.helper.prompt import ask, confirm_or_cancel
 from src.cli.work.timetable import entries_for_weekday, timetable_gate
@@ -15,6 +14,7 @@ from src.cli.work.works import (
     format_date,
     minutes,
     parse_time,
+    split_time,
     submit_work,
     summarize_entry,
     validate_date,
@@ -66,10 +66,8 @@ def check_overlap_all_courses(reg_year: int, reg_term: int) -> None:
     for c in courses:
         label = f"{c['course']['courseTemplate']['courseNo']} | Sec:{c['course']['section']:03d}"
         for w in fetch_works(c["courseId"]):
-            start, end = w["time"].split("-")
-            entries.append(
-                (format_date(w["date"]), minutes(f"{start[:2]}:{start[2:]}"), minutes(f"{end[:2]}:{end[2:]}"), label, w["work"])
-            )
+            start, end = split_time(w["time"])
+            entries.append((format_date(w["date"]), minutes(start), minutes(end), label, w["work"]))
 
     conflicts = []
     for i in range(len(entries)):
@@ -115,10 +113,8 @@ def _busy_ranges(
     for w in all_works:
         if format_date(w["date"]) != date_str:
             continue
-        start, end = w["time"].split("-")
-        busy.append(
-            (int(start[:2]) * 60 + int(start[2:]), int(end[:2]) * 60 + int(end[2:]), f"existing work: {w['work']}")
-        )
+        start, end = split_time(w["time"])
+        busy.append((minutes(start), minutes(end), f"existing work: {w['work']}"))
     busy.extend((s, e, "another row in this run") for s, e in extra_busy)
     return busy
 
@@ -196,33 +192,18 @@ def _validate_duration(text: str) -> bool | str:
     return True
 
 
-def _filter_by_min_start(candidates: list[str], min_start: str | None) -> list[str]:
-    """Filter candidates to >= min_start, falling back to the full list if that empties it.
-    Input: candidates (list[str]), min_start (str | None) - parsed 'HH:MM' or None.
-    Output: (list[str]) filtered (or original) candidates.
+def _filter_by_min_start(items: list, min_start: str | None, key=lambda item: item, desc: str = "free slot") -> list:
+    """Filter items to key(item) >= min_start, falling back to the full list if that empties it.
+    Input: items (list), min_start (str | None) - parsed 'HH:MM' or None, key (callable) - extracts
+        'HH:MM' from an item, desc (str) - noun used in the fallback message.
+    Output: (list) filtered (or original) items.
     """
     if not min_start:
-        return candidates
-    filtered = [c for c in candidates if minutes(c) >= minutes(min_start)]
+        return items
+    filtered = [i for i in items if minutes(key(i)) >= minutes(min_start)]
     if not filtered:
-        console.print(f"[yellow]No free slot at/after {min_start} - showing all free slots instead.[/yellow]")
-        return candidates
-    return filtered
-
-
-def _filter_slots_by_min_start(
-    slots: list[tuple[str, list[str]]], min_start: str | None
-) -> list[tuple[str, list[str]]]:
-    """Filter (time, overlap reasons) slots to >= min_start, falling back to the full list if that empties it.
-    Input: slots (list[tuple[str, list[str]]]), min_start (str | None) - parsed 'HH:MM' or None.
-    Output: (list[tuple[str, list[str]]]) filtered (or original) slots.
-    """
-    if not min_start:
-        return slots
-    filtered = [s for s in slots if minutes(s[0]) >= minutes(min_start)]
-    if not filtered:
-        console.print(f"[yellow]No slot at/after {min_start} - showing all slots instead.[/yellow]")
-        return slots
+        console.print(f"[yellow]No {desc} at/after {min_start} - showing all {desc}s instead.[/yellow]")
+        return items
     return filtered
 
 
@@ -268,7 +249,7 @@ def auto_find_slot(course_id: int) -> None:
     min_start = parse_time(min_start_text) if min_start_text.strip() else None
     if min_start_text.strip() and min_start is None:
         console.print("[yellow]Could not parse minimum start time - ignoring it.[/yellow]")
-    all_slots = _filter_slots_by_min_start(all_slots, min_start)
+    all_slots = _filter_by_min_start(all_slots, min_start, key=lambda s: s[0], desc="slot")
 
     free_times = [t for t, reasons in all_slots if not reasons]
     default = default_pick(free_times) if free_times else all_slots[0][0]
@@ -353,13 +334,7 @@ def auto_find_slot_bulk(course_id: int) -> None:
         return
 
     try:
-        with open(path, newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            missing = [c for c in ("date", "workHour", "work") if c not in (reader.fieldnames or [])]
-            if missing:
-                console.print(f"[red]CSV missing columns: {', '.join(missing)}[/red]")
-                return
-            rows = list(reader)
+        rows = read_csv_rows(path, ("date", "workHour", "work"))
     except FileNotFoundError:
         console.print(f"[red]File not found: {path}[/red]")
         return

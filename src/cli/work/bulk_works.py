@@ -57,14 +57,14 @@ def select_csv_path(title: str = "Add bulk works - CSV file:", instruction: str 
     ))
 
 
-def _read_rows(path: str) -> list[dict] | None:
+def read_csv_rows(path: str, required_columns: tuple[str, ...]) -> list[dict] | None:
     """Read CSV rows, checking required columns exist.
-    Input: path (str).
+    Input: path (str), required_columns (tuple[str, ...]).
     Output: (list[dict] | None) row dicts, or None if columns missing.
     """
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
-        missing = [c for c in REQUIRED_COLUMNS if c not in (reader.fieldnames or [])]
+        missing = [c for c in required_columns if c not in (reader.fieldnames or [])]
         if missing:
             console.print(f"[red]CSV missing columns: {', '.join(missing)}[/red]")
             return None
@@ -115,7 +115,7 @@ def add_bulk_works(course_id: int) -> None:
         return
 
     try:
-        rows = _read_rows(path)
+        rows = read_csv_rows(path, REQUIRED_COLUMNS)
     except FileNotFoundError:
         console.print(f"[red]File not found: {path}[/red]")
         return
