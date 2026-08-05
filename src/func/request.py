@@ -31,7 +31,7 @@ def retry_with_backoff(waits: tuple[int, ...] = RETRY_WAITS):
                 except urllib.error.HTTPError as e:
                     if e.code in (401, 403):
                         console.print("[yellow]Session expired — logging in again.[/yellow]")
-                        from src.auth import login  # lazy: auth imports set_cookie from this module
+                        from src.cli.auth import login  # lazy: auth imports set_cookie from this module
 
                         login()
                         continue

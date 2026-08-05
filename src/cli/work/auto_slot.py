@@ -6,11 +6,11 @@ from datetime import datetime
 import questionary
 from rich.console import Console
 
-from src.bulk_works import select_csv_path
-from src.course import current_reg_time, list_courses
-from src.prompt import ask, confirm_or_cancel
-from src.timetable import entries_for_weekday, timetable_gate
-from src.works import (
+from src.cli.work.bulk_works import select_csv_path
+from src.cli.course import current_reg_time, list_courses
+from src.helper.prompt import ask, confirm_or_cancel
+from src.cli.work.timetable import entries_for_weekday, timetable_gate
+from src.cli.work.works import (
     fetch_works,
     format_date,
     minutes,

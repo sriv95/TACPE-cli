@@ -5,10 +5,10 @@ import json
 import questionary
 from rich.console import Console
 
-from src.const import REG_TIME_URL, TA_LIST_URL
-from src.exceptions import UserCancelled
-from src.prompt import ask
-from src.request import request
+from src.func.const import REG_TIME_URL, TA_LIST_URL
+from src.helper.exceptions import UserCancelled
+from src.helper.prompt import ask
+from src.func.request import request
 
 console = Console()
 
@@ -97,12 +97,12 @@ def select_course() -> tuple[int, str]:
             reg_year, reg_term = select_reg_time()
             continue
         if course_id is CHECK_OVERLAP:
-            from src.auto_slot import check_overlap_all_courses
+            from src.cli.work.auto_slot import check_overlap_all_courses
 
             check_overlap_all_courses(reg_year, reg_term)
             continue
         if course_id is LOGOUT:
-            from src.auth import logout
+            from src.cli.auth import logout
 
             logout()
             raise UserCancelled

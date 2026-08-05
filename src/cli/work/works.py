@@ -10,9 +10,9 @@ from zoneinfo import ZoneInfo
 import questionary
 from rich.console import Console
 
-from src.const import ADD_WORK_URL, BASE_URL, DELETE_WORK_URL, EDIT_WORK_URL, WORK_REPORT_URL
-from src.prompt import ask, confirm_or_cancel
-from src.request import post_json, request
+from src.func.const import ADD_WORK_URL, BASE_URL, DELETE_WORK_URL, EDIT_WORK_URL, WORK_REPORT_URL
+from src.helper.prompt import ask, confirm_or_cancel
+from src.func.request import post_json, request
 
 UTC = ZoneInfo("UTC")
 
@@ -297,15 +297,15 @@ def add_works_menu(course_id: int) -> None:
     if choice == "single":
         add_works(course_id)
     elif choice == "bulk":
-        from src.bulk_works import add_bulk_works
+        from src.cli.work.bulk_works import add_bulk_works
 
         add_bulk_works(course_id)
     elif choice == "auto":
-        from src.auto_slot import auto_find_slot
+        from src.cli.work.auto_slot import auto_find_slot
 
         auto_find_slot(course_id)
     elif choice == "auto_bulk":
-        from src.auto_slot import auto_find_slot_bulk
+        from src.cli.work.auto_slot import auto_find_slot_bulk
 
         auto_find_slot_bulk(course_id)
 

@@ -7,9 +7,9 @@ from pathlib import Path
 import questionary
 from rich.console import Console
 
-from src.const import BASE_URL, TEST_URL
-from src.prompt import ask
-from src.request import set_cookie
+from src.func.const import BASE_URL, TEST_URL
+from src.helper.prompt import ask
+from src.func.request import set_cookie
 COOKIE_FILE = Path(__file__).resolve().parent.parent / ".cache" / ".cookie"
 
 console = Console()
@@ -33,7 +33,7 @@ def load_cookie() -> str:
     Output: (str) raw Cookie header string; raises if none saved.
     """
     if not COOKIE_FILE.exists():
-        raise FileNotFoundError(f"No cookie saved. Run `python -m src.auth login` first ({COOKIE_FILE}).")
+        raise FileNotFoundError(f"No cookie saved. Run `python -m src.cli.auth login` first ({COOKIE_FILE}).")
     return COOKIE_FILE.read_text().strip()
 
 

@@ -5,10 +5,10 @@ import csv
 import questionary
 from rich.console import Console
 
-from src.exceptions import UserCancelled
-from src.file import browse_file
-from src.prompt import ask, confirm_or_cancel
-from src.works import minutes, overlaps_lunch, parse_time, submit_work, validate_date, validate_work
+from src.helper.exceptions import UserCancelled
+from src.helper.file import browse_file
+from src.helper.prompt import ask, confirm_or_cancel
+from src.cli.work.works import minutes, overlaps_lunch, parse_time, submit_work, validate_date, validate_work
 
 console = Console()
 

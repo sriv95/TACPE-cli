@@ -2,11 +2,11 @@ import sys
 
 from rich.console import Console
 
-from src.auth import login
-from src.course import select_course
-from src.exceptions import UserCancelled
-from src.update import check_update
-from src.works import view_works
+from src.cli.auth import login
+from src.cli.course import select_course
+from src.helper.exceptions import UserCancelled
+from src.func.update import check_update
+from src.cli.work.works import view_works
 
 console = Console()
 

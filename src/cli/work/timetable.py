@@ -6,8 +6,8 @@ from pathlib import Path
 import questionary
 from rich.console import Console
 
-from src.prompt import ask
-from src.works import minutes, parse_time
+from src.helper.prompt import ask
+from src.cli.work.works import minutes, parse_time
 
 console = Console()
 
