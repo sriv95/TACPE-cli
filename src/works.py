@@ -233,7 +233,11 @@ def open_in_browser(course_id: int) -> None:
         pass
 
     if chromium_installed:
-        subprocess.Popen([sys.executable, "-m", "src.browser_launcher", url], start_new_session=True)
+        subprocess.Popen(
+            [sys.executable, "-m", "src.browser_launcher", url],
+            start_new_session=True,
+            stderr=subprocess.DEVNULL,
+        )
     else:
         webbrowser.open(url)
 
