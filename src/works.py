@@ -11,7 +11,7 @@ import questionary
 from rich.console import Console
 
 from src.const import ADD_WORK_URL, BASE_URL, DELETE_WORK_URL, EDIT_WORK_URL, WORK_REPORT_URL
-from src.exceptions import UserCancelled
+from src.prompt import ask, confirm_or_cancel
 from src.request import post_json, request
 
 UTC = ZoneInfo("UTC")
@@ -172,15 +172,13 @@ def view_works(course_id: int, course_label: str) -> None:
         choices.append(questionary.Choice("Back to select courses", value=BACK_TO_COURSES))
         choices.append(questionary.Choice("Exit App", value=EXIT_APP))
 
-        selected = questionary.select(
+        selected = ask(questionary.select(
             "Works:",
             choices=choices,
             default=choices[-4],
             instruction=f"\n  Course: {course_label}\n",
             erase_when_done=True,
-        ).ask()
-        if selected is None:
-            raise UserCancelled
+        ))
         if selected is ADD_WORKS:
             add_works_menu(course_id)
         elif selected is MORE_OPTIONS:
@@ -198,7 +196,7 @@ def more_options_menu(course_id: int, works: list[dict]) -> None:
     """Prompt user for extra actions: multi-delete or back.
     Input: course_id (int), works (list[dict]) - current work entries.
     """
-    choice = questionary.select(
+    choice = ask(questionary.select(
         "More Options:",
         choices=[
             questionary.Choice("Delete multiple", value="delete_multiple"),
@@ -206,9 +204,7 @@ def more_options_menu(course_id: int, works: list[dict]) -> None:
             questionary.Choice("Back", value="back"),
         ],
         erase_when_done=True,
-    ).ask()
-    if choice is None:
-        raise UserCancelled
+    ))
     if choice == "delete_multiple":
         delete_multiple_works(course_id, works)
     elif choice == "open_browser":
@@ -230,7 +226,7 @@ def delete_multiple_works(course_id: int, works: list[dict]) -> None:
         console.print("[yellow]No works to delete.[/yellow]")
         return
 
-    selected = questionary.checkbox(
+    selected = ask(questionary.checkbox(
         "Select works to delete (space to toggle, enter to confirm):",
         choices=[
             questionary.Choice(
@@ -239,18 +235,11 @@ def delete_multiple_works(course_id: int, works: list[dict]) -> None:
             for w in works
         ],
         erase_when_done=True,
-    ).ask()
-    if selected is None:
-        raise UserCancelled
+    ))
     if not selected:
         return
 
-    confirmed = questionary.confirm(
-        f"Delete {len(selected)} work(s)? (y/N)", default=False, erase_when_done=True
-    ).ask()
-    if confirmed is None:
-        raise UserCancelled
-    if not confirmed:
+    if not confirm_or_cancel(f"Delete {len(selected)} work(s)? (y/N)", default=False, erase_when_done=True):
         return
 
     by_id = {w["_id"]: w for w in works}
@@ -271,7 +260,7 @@ def work_entry_menu(course_id: int, work: dict) -> None:
     """Prompt user to Edit/Delete/Back for a selected work entry.
     Input: course_id (int), work (dict) - the selected work entry.
     """
-    choice = questionary.select(
+    choice = ask(questionary.select(
         "Work entry:",
         choices=[
             questionary.Choice("Edit", value="edit"),
@@ -281,9 +270,7 @@ def work_entry_menu(course_id: int, work: dict) -> None:
         ],
         instruction=f"\n  {format_date(work['date'])} | {format_time(work['time'])} | {work['work']}\n",
         erase_when_done=True,
-    ).ask()
-    if choice is None:
-        raise UserCancelled
+    ))
     if choice == "edit":
         edit_work_entry(course_id, work)
     elif choice == "clone":
@@ -296,7 +283,7 @@ def add_works_menu(course_id: int) -> None:
     """Prompt user to choose single/bulk add, or go back.
     Input: course_id (int).
     """
-    choice = questionary.select(
+    choice = ask(questionary.select(
         "Add works:",
         choices=[
             questionary.Choice("1. Add a work", value="single"),
@@ -306,9 +293,7 @@ def add_works_menu(course_id: int) -> None:
             questionary.Choice("Back", value="back"),
         ],
         erase_when_done=True,
-    ).ask()
-    if choice is None:
-        raise UserCancelled
+    ))
     if choice == "single":
         add_works(course_id)
     elif choice == "bulk":
@@ -427,15 +412,12 @@ def _prompt_date(label: str, default: str, min_date: str | None = None, max_date
             return f"Format: YYYY-MM-DD (between {min_date} and {max_date})"
         return True
 
-    date_str = questionary.text(
+    return ask(questionary.text(
         f"{label} - Enter Date (YYYY-MM-DD):",
         default=default,
         validate=_validate,
         erase_when_done=True,
-    ).ask()
-    if date_str is None:
-        raise UserCancelled
-    return date_str
+    ))
 
 
 def _prompt_task_time(label: str, date_str: str, defaults: dict | None = None) -> dict:
@@ -445,36 +427,30 @@ def _prompt_task_time(label: str, date_str: str, defaults: dict | None = None) -
     Output: (dict) {work, time_start, time_end, hours}.
     """
     defaults = defaults or {}
-    work = questionary.text(
+    work = ask(questionary.text(
         f"{label} - Enter Task:",
         default=defaults.get("work", ""),
         instruction=f"\n  Date: {date_str}\n",
         validate=validate_work,
         erase_when_done=True,
-    ).ask()
-    if work is None:
-        raise UserCancelled
+    ))
 
-    time_start = questionary.text(
+    time_start = ask(questionary.text(
         f"{label} - Enter Start Time (HH:MM):",
         default=defaults.get("time_start", ""),
         instruction=f"\n  Date: {date_str}\n  Task: {work}\n",
         validate=_validate_time,
         erase_when_done=True,
-    ).ask()
-    if time_start is None:
-        raise UserCancelled
+    ))
     time_start = parse_time(time_start)
 
-    time_end = questionary.text(
+    time_end = ask(questionary.text(
         f"{label} - Enter End Time (HH:MM):",
         default=defaults.get("time_end", ""),
         instruction=f"\n  Date: {date_str}\n  Task: {work}\n  Start: {time_start}\n",
         validate=lambda text: _validate_time_end(text, time_start),
         erase_when_done=True,
-    ).ask()
-    if time_end is None:
-        raise UserCancelled
+    ))
     time_end = parse_time(time_end)
 
     hours = (minutes(time_end) - minutes(time_start)) / 60
@@ -506,14 +482,12 @@ def prompt_weekly_until(selected_date: str, min_date: str, max_date: str) -> lis
         return f"{d} ({weekday}){tag}"
 
     choices = [questionary.Choice(_label(d), value=d) for d in weekdays]
-    cutoff = questionary.select(
+    cutoff = ask(questionary.select(
         "Repeat weekly until:",
         choices=choices,
         default=next(c for c in choices if c.value == selected_date),
         erase_when_done=True,
-    ).ask()
-    if cutoff is None:
-        raise UserCancelled
+    ))
 
     lo, hi = sorted([selected_date, cutoff])
     return [d for d in weekdays if lo <= d <= hi]
@@ -534,15 +508,12 @@ def prompt_multi_select_dates(selected_date: str, min_date: str, max_date: str) 
         questionary.Choice(_label(d), value=d, checked=(d == selected_date))
         for d in days
     ]
-    selected = questionary.checkbox(
+    return ask(questionary.checkbox(
         "Select dates (space to toggle, enter to confirm):",
         choices=choices,
         initial_choice=selected_date,
         erase_when_done=True,
-    ).ask()
-    if selected is None:
-        raise UserCancelled
-    return selected
+    ))
 
 
 def summarize_entry(entry: dict) -> str:
@@ -588,7 +559,7 @@ def _prompt_more_dates(selected_date: str, today: str) -> list[str]:
     Input: selected_date (str) - the original anchor date, today (str) - YYYY-MM-DD bound reference.
     Output: (list[str]) additional dates, or [] if the user chose Back.
     """
-    mode = questionary.select(
+    mode = ask(questionary.select(
         "Add more:",
         choices=[
             questionary.Choice("Every week until date", value="weekly"),
@@ -597,9 +568,7 @@ def _prompt_more_dates(selected_date: str, today: str) -> list[str]:
             questionary.Choice("Back", value="back"),
         ],
         erase_when_done=True,
-    ).ask()
-    if mode is None:
-        raise UserCancelled
+    ))
     if mode == "back":
         return []
 
@@ -626,7 +595,7 @@ def add_works(course_id: int) -> None:
     while True:
         dates = sorted(set(dates), reverse=True)
         message = "Submit this work?" if len(dates) == 1 else f"Submit these {len(dates)} works?"
-        action = questionary.select(
+        action = ask(questionary.select(
             message,
             choices=[
                 questionary.Choice("Submit", value="submit"),
@@ -635,9 +604,7 @@ def add_works(course_id: int) -> None:
             ],
             instruction=summarize_entries(dates, task_time),
             erase_when_done=True,
-        ).ask()
-        if action is None:
-            raise UserCancelled
+        ))
         if action == "cancel":
             return
         if action == "submit":
@@ -679,12 +646,7 @@ def edit_work_entry(course_id: int, work: dict) -> None:
     }
     entry = _prompt_work_entry(label="Edit Work", defaults=defaults)
 
-    confirmed = questionary.confirm(
-        "Submit this edit? (Y/n)", instruction=summarize_entry(entry), erase_when_done=True
-    ).ask()
-    if confirmed is None:
-        raise UserCancelled
-    if not confirmed:
+    if not confirm_or_cancel("Submit this edit? (Y/n)", instruction=summarize_entry(entry), erase_when_done=True):
         return
 
     edit_work(course_id, work["_id"], entry)
@@ -699,27 +661,20 @@ def clone_work_entry(course_id: int, work: dict) -> None:
     Input: course_id (int), work (dict) - the existing work entry to clone.
     """
     start, end = work["time"].split("-")
-    date_str = questionary.text(
+    date_str = ask(questionary.text(
         "Clone Work - Enter Date (YYYY-MM-DD):",
         default=datetime.now(BANGKOK).strftime("%Y-%m-%d"),
         instruction=f"\n  Task: {work['work']}\n  Time: {start[:2]}:{start[2:]} - {end[:2]}:{end[2:]}\n",
         validate=validate_date,
         erase_when_done=True,
-    ).ask()
-    if date_str is None:
-        raise UserCancelled
+    ))
 
     time_start = f"{start[:2]}:{start[2:]}"
     time_end = f"{end[:2]}:{end[2:]}"
     hours = (minutes(time_end) - minutes(time_start)) / 60
     entry = {"date": date_str, "work": work["work"], "time_start": time_start, "time_end": time_end, "hours": hours}
 
-    confirmed = questionary.confirm(
-        "Submit this work? (Y/n)", instruction=summarize_entry(entry), erase_when_done=True
-    ).ask()
-    if confirmed is None:
-        raise UserCancelled
-    if not confirmed:
+    if not confirm_or_cancel("Submit this work? (Y/n)", instruction=summarize_entry(entry), erase_when_done=True):
         return
 
     submit_work(course_id, entry)
@@ -733,15 +688,12 @@ def delete_work_entry(course_id: int, work: dict) -> None:
     """Confirm and delete an existing work entry.
     Input: course_id (int), work (dict) - the existing work entry.
     """
-    confirmed = questionary.confirm(
+    if not confirm_or_cancel(
         "Delete this work? (y/N)",
         default=False,
         instruction=f"\n  {format_date(work['date'])} | {format_time(work['time'])} | {work['work']}\n",
         erase_when_done=True,
-    ).ask()
-    if confirmed is None:
-        raise UserCancelled
-    if not confirmed:
+    ):
         return
 
     delete_work(course_id, work["_id"])

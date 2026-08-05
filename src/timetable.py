@@ -6,7 +6,7 @@ from pathlib import Path
 import questionary
 from rich.console import Console
 
-from src.exceptions import UserCancelled
+from src.prompt import ask
 from src.works import minutes, parse_time
 
 console = Console()
@@ -54,41 +54,33 @@ def _prompt_time_entry(defaults: dict | None = None) -> dict | None:
     Output: (dict | None) entry, or None if cancelled.
     """
     defaults = defaults or {}
-    name = questionary.text(
+    name = ask(questionary.text(
         "Timetable - Name (course):", default=defaults.get("name", ""), erase_when_done=True
-    ).ask()
-    if name is None:
-        raise UserCancelled
+    ))
 
-    weekday = questionary.select(
+    weekday = ask(questionary.select(
         "Timetable - Day of week:",
         choices=[questionary.Choice(day, value=i) for i, day in enumerate(WEEKDAYS)],
         default=defaults.get("weekday"),
         erase_when_done=True,
-    ).ask()
-    if weekday is None:
-        raise UserCancelled
+    ))
 
-    start = questionary.text(
+    start = ask(questionary.text(
         "Timetable - Start Time (HH:MM):",
         default=defaults.get("start", ""),
         validate=_validate_weekday_time,
         erase_when_done=True,
-    ).ask()
-    if start is None:
-        raise UserCancelled
+    ))
     start = parse_time(start, strict=False)
 
-    end = questionary.text(
+    end = ask(questionary.text(
         "Timetable - End Time (HH:MM):",
         default=defaults.get("end", ""),
         validate=lambda t: _validate_weekday_time(t)
         if parse_time(t, strict=False) is None or minutes(parse_time(t, strict=False)) > minutes(start)
         else "End time must be after start time",
         erase_when_done=True,
-    ).ask()
-    if end is None:
-        raise UserCancelled
+    ))
     end = parse_time(end, strict=False)
 
     return {"name": name, "weekday": weekday, "start": start, "end": end}
@@ -107,9 +99,7 @@ def edit_timetable_menu() -> None:
         choices.append(questionary.Choice("Add Time", value=ADD_TIME))
         choices.append(questionary.Choice("Back", value=BACK))
 
-        selected = questionary.select("Edit Time Table:", choices=choices, erase_when_done=True).ask()
-        if selected is None:
-            raise UserCancelled
+        selected = ask(questionary.select("Edit Time Table:", choices=choices, erase_when_done=True))
         if selected is BACK:
             return
         if selected is ADD_TIME:
@@ -137,7 +127,7 @@ def timetable_gate(proceed_label: str = "Next") -> list[dict]:
         else:
             instruction = "\n  No timetable entries yet.\n"
 
-        choice = questionary.select(
+        choice = ask(questionary.select(
             "Time Table:",
             choices=[
                 questionary.Choice(proceed_label, value="next"),
@@ -145,9 +135,7 @@ def timetable_gate(proceed_label: str = "Next") -> list[dict]:
             ],
             instruction=instruction,
             erase_when_done=True,
-        ).ask()
-        if choice is None:
-            raise UserCancelled
+        ))
         if choice == "edit":
             edit_timetable_menu()
             continue

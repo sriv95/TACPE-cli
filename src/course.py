@@ -7,6 +7,7 @@ from rich.console import Console
 
 from src.const import REG_TIME_URL, TA_LIST_URL
 from src.exceptions import UserCancelled
+from src.prompt import ask
 from src.request import request
 
 console = Console()
@@ -45,12 +46,9 @@ def select_reg_time() -> tuple[int, int]:
     current = next((r for r in reg_times if r["inUse"]), None)
     default = (current["year"], current["term"]) if current else None
 
-    reg_time = questionary.select(
+    return ask(questionary.select(
         "Select year/term:", choices=choices, default=default, erase_when_done=True
-    ).ask()
-    if reg_time is None:
-        raise UserCancelled
-    return reg_time
+    ))
 
 
 def list_courses(reg_year: int, reg_term: int) -> list[dict]:
@@ -92,11 +90,9 @@ def select_course() -> tuple[int, str]:
         choices.append(questionary.Choice("Check Overlap", value=CHECK_OVERLAP))
         choices.append(questionary.Choice("Logout (remove Cookie)", value=LOGOUT))
 
-        course_id = questionary.select(
+        course_id = ask(questionary.select(
             f"Select course [{reg_term}/{reg_year}]:", choices=choices, erase_when_done=True
-        ).ask()
-        if course_id is None:
-            raise UserCancelled
+        ))
         if course_id is CHANGE_REG_TIME:
             reg_year, reg_term = select_reg_time()
             continue

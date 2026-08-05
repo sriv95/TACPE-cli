@@ -8,7 +8,7 @@ from rich.console import Console
 
 from src.bulk_works import select_csv_path
 from src.course import current_reg_time, list_courses
-from src.exceptions import UserCancelled
+from src.prompt import ask, confirm_or_cancel
 from src.timetable import entries_for_weekday, timetable_gate
 from src.works import (
     fetch_works,
@@ -232,33 +232,27 @@ def auto_find_slot(course_id: int) -> None:
     """
     timetable = timetable_gate()
 
-    date_str = questionary.text(
+    date_str = ask(questionary.text(
         "Auto Find Slot - Enter Date (YYYY-MM-DD):",
         default=datetime.now().strftime("%Y-%m-%d"),
         validate=validate_date,
         erase_when_done=True,
-    ).ask()
-    if date_str is None:
-        raise UserCancelled
+    ))
 
-    duration_text = questionary.text(
+    duration_text = ask(questionary.text(
         "Auto Find Slot - Work Hours (e.g. 2 or 2.5):",
         instruction=f"\n  Date: {date_str}\n",
         validate=_validate_duration,
         erase_when_done=True,
-    ).ask()
-    if duration_text is None:
-        raise UserCancelled
+    ))
     duration = float(duration_text)
 
-    work = questionary.text(
+    work = ask(questionary.text(
         "Auto Find Slot - Enter Task:",
         instruction=f"\n  Date: {date_str}\n  Hours: {duration:g}\n",
         validate=validate_work,
         erase_when_done=True,
-    ).ask()
-    if work is None:
-        raise UserCancelled
+    ))
 
     all_works = fetch_all_course_works()
     all_slots = slots_with_overlap(date_str, duration, timetable, all_works)
@@ -266,13 +260,11 @@ def auto_find_slot(course_id: int) -> None:
         console.print(f"[red]No {duration:g}-hour slot fits in the day.[/red]")
         return
 
-    min_start_text = questionary.text(
+    min_start_text = ask(questionary.text(
         "Auto Find Slot - Minimum start time (blank to skip):",
         instruction=f"\n  Date: {date_str}\n  Hours: {duration:g}\n  Task: {work}\n",
         erase_when_done=True,
-    ).ask()
-    if min_start_text is None:
-        raise UserCancelled
+    ))
     min_start = parse_time(min_start_text) if min_start_text.strip() else None
     if min_start_text.strip() and min_start is None:
         console.print("[yellow]Could not parse minimum start time - ignoring it.[/yellow]")
@@ -289,15 +281,13 @@ def auto_find_slot(course_id: int) -> None:
         )
         for c, reasons in all_slots
     ]
-    time_start = questionary.select(
+    time_start = ask(questionary.select(
         "Auto Find Slot - Choose start time:",
         choices=choices,
         default=default,
         instruction=f"\n  Date: {date_str}\n  Task: {work}\n",
         erase_when_done=True,
-    ).ask()
-    if time_start is None:
-        raise UserCancelled
+    ))
     time_end = _fmt(minutes(time_start) + round(duration * 60))
 
     entry = {"date": date_str, "work": work, "time_start": time_start, "time_end": time_end, "hours": duration}
@@ -306,12 +296,7 @@ def auto_find_slot(course_id: int) -> None:
     if chosen_reasons:
         console.print(f"[yellow]Warning: chosen time overlaps {', '.join(chosen_reasons)}.[/yellow]")
 
-    confirmed = questionary.confirm(
-        "Submit this work? (Y/n)", instruction=summarize_entry(entry), erase_when_done=True
-    ).ask()
-    if confirmed is None:
-        raise UserCancelled
-    if not confirmed:
+    if not confirm_or_cancel("Submit this work? (Y/n)", instruction=summarize_entry(entry), erase_when_done=True):
         return
 
     submit_work(course_id, entry)
@@ -420,10 +405,7 @@ def auto_find_slot_bulk(course_id: int) -> None:
     total_hours = sum(e["hours"] for e in entries)
     console.print(f"\n[bold]Total: {total_hours:g} hrs across {len(entries)} work(s)[/bold]\n")
 
-    confirmed = questionary.confirm(f"Submit {len(entries)} valid work(s)?").ask()
-    if confirmed is None:
-        raise UserCancelled
-    if not confirmed:
+    if not confirm_or_cancel(f"Submit {len(entries)} valid work(s)?"):
         return
 
     for entry in entries:

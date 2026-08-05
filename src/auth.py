@@ -8,7 +8,7 @@ import questionary
 from rich.console import Console
 
 from src.const import BASE_URL, TEST_URL
-from src.exceptions import UserCancelled
+from src.prompt import ask
 from src.request import set_cookie
 COOKIE_FILE = Path(__file__).resolve().parent.parent / ".cache" / ".cookie"
 
@@ -48,13 +48,11 @@ def login_manual() -> str:
     """Prompt user to paste a Cookie header copied from DevTools.
     Output: (str) raw Cookie header string.
     """
-    cookie = questionary.text(
+    cookie = ask(questionary.text(
         "Paste Cookie header:",
         instruction=MANUAL_INSTRUCTION,
         erase_when_done=True,
-    ).ask()
-    if cookie is None:
-        raise UserCancelled
+    ))
     if not cookie:
         raise RuntimeError("No cookie entered.")
     return cookie
@@ -125,15 +123,13 @@ def login_prompt() -> str:
     from playwright.sync_api import Error as PlaywrightError
 
     while True:
-        method = questionary.select(
+        method = ask(questionary.select(
             "How do you want to login?",
             choices=[
                 questionary.Choice("1. Browser login", value="browser"),
                 questionary.Choice("2. Manual paste Cookie", value="manual"),
             ],
-        ).ask()
-        if method is None:
-            raise UserCancelled
+        ))
         try:
             cookie = (login_browser if method == "browser" else login_manual)()
         except PlaywrightError as e:

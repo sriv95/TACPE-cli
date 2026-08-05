@@ -7,6 +7,7 @@ from rich.console import Console
 
 from src.exceptions import UserCancelled
 from src.file import browse_file
+from src.prompt import ask, confirm_or_cancel
 from src.works import minutes, overlaps_lunch, parse_time, submit_work, validate_date, validate_work
 
 console = Console()
@@ -28,7 +29,7 @@ def select_csv_path(title: str = "Add bulk works - CSV file:", instruction: str 
     Input: title (str), instruction (str) - prompt text overrides for other CSV flows.
     Output: (str | None) file path, or None if back.
     """
-    method = questionary.select(
+    method = ask(questionary.select(
         title,
         choices=[
             questionary.Choice("1. From file... (browse)", value="browse"),
@@ -37,9 +38,7 @@ def select_csv_path(title: str = "Add bulk works - CSV file:", instruction: str 
         ],
         instruction=instruction,
         erase_when_done=True,
-    ).ask()
-    if method is None:
-        raise UserCancelled
+    ))
     if method == "back":
         return None
 
@@ -53,12 +52,9 @@ def select_csv_path(title: str = "Add bulk works - CSV file:", instruction: str 
                 raise UserCancelled
             return path
 
-    path = questionary.text(
+    return ask(questionary.text(
         "CSV file path:", instruction=instruction, erase_when_done=True
-    ).ask()
-    if path is None:
-        raise UserCancelled
-    return path
+    ))
 
 
 def _read_rows(path: str) -> list[dict] | None:
@@ -142,10 +138,7 @@ def add_bulk_works(course_id: int) -> None:
     total_hours = sum(e["hours"] for e in entries)
     console.print(f"\n[bold]Total: {total_hours:g} hrs across {len(entries)} work(s)[/bold]\n")
 
-    confirmed = questionary.confirm(f"Submit {len(entries)} valid work(s)?").ask()
-    if confirmed is None:
-        raise UserCancelled
-    if not confirmed:
+    if not confirm_or_cancel(f"Submit {len(entries)} valid work(s)?"):
         return
 
     added, failed = 0, 0
