@@ -11,4 +11,4 @@
 ## [1.0.0] - 2026-08-05
 First Release
 
-[v1.0.1]: https://github.com/sriv95/TACPE-csv-to-works/compare/v1.0.0...v1.0.1
+[v1.0.1]: https://github.com/sriv95/TACPE-cli/compare/v1.0.0...v1.0.1

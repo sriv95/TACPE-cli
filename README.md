@@ -1,4 +1,4 @@
-# TACPE CSV to Works
+# TACPE CLI
 
 CLI that adds TA work entries into the CPE TA site, single or in bulk from a CSV
 
@@ -11,19 +11,19 @@ CLI that adds TA work entries into the CPE TA site, single or in bulk from a CSV
 
 ## One-time (Without install)
 ```bash
-uvx --from git+https://github.com/sriv95/TACPE-csv-to-works tacpe
+uvx --from git+https://github.com/sriv95/TACPE-cli tacpe
 ```
 
 ## Installation
 
 Using [uv](https://docs.astral.sh/uv/)
 ```bash
-uv tool install git+https://github.com/sriv95/TACPE-csv-to-works
+uv tool install git+https://github.com/sriv95/TACPE-cli
 ```
 
 Using [pipx](https://pipx.pypa.io/)
 ```bash
-pipx install git+https://github.com/sriv95/TACPE-csv-to-works
+pipx install git+https://github.com/sriv95/TACPE-cli
 ```
 
 Force Update: `uv tool upgrade tacpe` (or `pipx upgrade tacpe`)

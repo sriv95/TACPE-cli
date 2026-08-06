@@ -9,8 +9,8 @@ from importlib.metadata import version
 import questionary
 from rich.console import Console
 
-REPO_URL = "https://github.com/sriv95/TACPE-csv-to-works"
-PYPROJECT_RAW_URL = "https://raw.githubusercontent.com/sriv95/TACPE-csv-to-works/main/pyproject.toml"
+REPO_URL = "https://github.com/sriv95/TACPE-cli"
+PYPROJECT_RAW_URL = "https://raw.githubusercontent.com/sriv95/TACPE-cli/main/pyproject.toml"
 
 console = Console()
 

@@ -3,8 +3,8 @@
 Requires Python >=3.14 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone https://github.com/sriv95/TACPE-csv-to-works
-cd TACPE-csv-to-works
+git clone https://github.com/sriv95/TACPE-cli
+cd TACPE-cli
 uv sync                              # install dependencies
 uv run playwright install chromium   # browser for the Browser login method
 uv run tacpe                         # run the CLI
