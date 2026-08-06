@@ -57,13 +57,11 @@ def fetch_all_course_works() -> list[dict]:
     return works
 
 
-def check_overlap_all_courses(reg_year: int, reg_term: int) -> None:
-    """Timetable gate, then report overlapping work entries across every course in a term.
-    Input: reg_year (int), reg_term (int).
+def find_overlap_conflicts(courses: list[dict], timetable: list[dict]) -> list[str]:
+    """Find overlapping work entries across courses, and against a timetable.
+    Input: courses (list[dict]) - TA/course dicts, timetable (list[dict]).
+    Output: (list[str]) human-readable conflict descriptions.
     """
-    timetable = timetable_gate(proceed_label="Check")
-
-    courses = list_courses(reg_year, reg_term)
     entries = []
     for c in courses:
         label = f"{c['course']['courseTemplate']['courseNo']} | Sec:{c['course']['section']:03d}"
@@ -86,7 +84,13 @@ def check_overlap_all_courses(reg_year: int, reg_term: int) -> None:
                 conflicts.append(
                     f"{d1}: [{l1}] {w1} ({_fmt(s1)}-{_fmt(e1)}) overlaps timetable: {te['name']} ({te['start']}-{te['end']})"
                 )
+    return conflicts
 
+
+def print_overlap_conflicts(conflicts: list[str]) -> None:
+    """Print overlap conflicts (or a none-found message), rich-formatted.
+    Input: conflicts (list[str]).
+    """
     console.print()
     if conflicts:
         console.print(f"[bold red]Found {len(conflicts)} overlap(s):[/bold red]")
@@ -95,6 +99,15 @@ def check_overlap_all_courses(reg_year: int, reg_term: int) -> None:
     else:
         console.print("[bold green]No overlaps found.[/bold green]")
     console.print()
+
+
+def check_overlap_all_courses(reg_year: int, reg_term: int) -> None:
+    """Timetable gate, then report overlapping work entries across every course in a term.
+    Input: reg_year (int), reg_term (int).
+    """
+    timetable = timetable_gate(proceed_label="Check")
+    courses = list_courses(reg_year, reg_term)
+    print_overlap_conflicts(find_overlap_conflicts(courses, timetable))
 
 
 def _busy_ranges(

@@ -7,7 +7,9 @@ from rich.console import Console
 
 from src.cli.auth import check_login, login_prompt, logout
 from src.cli.course import current_reg_time, list_courses
+from src.cli.work.auto_slot import find_overlap_conflicts, print_overlap_conflicts
 from src.cli.work.bulk_works import REQUIRED_COLUMNS, _validate_row, read_csv_rows
+from src.cli.work.timetable import load_timetable
 from src.cli.work.works import (
     fetch_works,
     format_date,
@@ -50,6 +52,10 @@ def build_parser() -> argparse.ArgumentParser:
     courses_parser = subparsers.add_parser("courses", help="List courses you TA for")
     courses_parser.add_argument("--term", "--t", dest="term", type=int, default=None, help=TERM_HELP)
     courses_parser.add_argument("--year", "--y", dest="year", default=None, help=YEAR_HELP)
+
+    check_parser = subparsers.add_parser("check", help="Check for overlapping work entries across all courses in a term")
+    check_parser.add_argument("--term", "--t", dest="term", type=int, default=None, help=TERM_HELP)
+    check_parser.add_argument("--year", "--y", dest="year", default=None, help=YEAR_HELP)
 
     list_parser = subparsers.add_parser("list", help="List work entries for a course")
     list_parser.add_argument("target", nargs="?", default=None, help="courseNo or courseId (see `tacpe courses`)")
@@ -153,6 +159,15 @@ def _list_works_command(identifier: str, term: int | None, year: str | None, sec
         console.print(f"{format_date(w['date'])} | {format_time(w['time'])} | {w['work']}")
 
 
+def _check_command(term: int | None, year: str | None) -> None:
+    """Report overlapping work entries across every course in a term, no timetable prompt."""
+    if not check_login():
+        raise SystemExit("Not logged in. Run `tacpe login` first.")
+    reg_year, reg_term = _resolve_term_year(term, year)
+    courses = list_courses(reg_year, reg_term)
+    print_overlap_conflicts(find_overlap_conflicts(courses, load_timetable()))
+
+
 def _add_single(course_id: int, date: str, start_time: str, end_time: str, work: str) -> None:
     """Validate and submit one work entry, no confirm/overlap check."""
     if validate_date(date) is not True:
@@ -242,6 +257,9 @@ def run(argv: list[str] | None = None) -> bool:
         return True
     if args.command == "courses":
         _list_courses_command(args.term, args.year)
+        return True
+    if args.command == "check":
+        _check_command(args.term, args.year)
         return True
     if args.command == "list":
         if args.target is None:
