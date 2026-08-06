@@ -144,6 +144,20 @@ def login_prompt(method: str | None = None) -> str:
         return cookie
 
 
+def check_login() -> bool:
+    """Check for a saved, still-valid cookie and set it as the active cookie. Never prompts.
+    Output: (bool) True if logged in (cookie set), False otherwise.
+    """
+    try:
+        cookie = load_cookie()
+    except FileNotFoundError:
+        return False
+    if not test_cookie(cookie):
+        return False
+    set_cookie(cookie)
+    return True
+
+
 def login() -> str:
     """Return a working cookie: try the saved one first, else prompt login.
     Output: (str) valid Cookie header string; also sets it as the global request cookie.
