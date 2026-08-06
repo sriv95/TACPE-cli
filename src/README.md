@@ -30,4 +30,10 @@ uv run tacpe                         # run the CLI
   - `file.py` native file picker
   - `exceptions.py` shared `UserCancelled` exception for clean Ctrl+C / cancel handling
 
-No test suite yet - verify changes with `uv run python -m src.main` against a real login. (bad)
+## Testing
+
+Unit tests only cover pure logic (time parsing, date math, CSV row validation, slot-finding)
+
+```bash
+uv run python -m unittest discover -s tests -v
+```
