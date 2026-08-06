@@ -22,7 +22,7 @@ from src.cli.work.auto_slot import (
     slots_with_overlap,
 )
 from src.cli.work.bulk_works import REQUIRED_COLUMNS, _validate_row, read_csv_rows
-from src.cli.work.timetable import _row_label, load_timetable
+from src.cli.work.timetable import WEEKDAYS, _row_label, load_timetable, save_timetable
 from src.cli.work.works import (
     delete_work,
     edit_work,
@@ -71,8 +71,26 @@ def build_parser() -> argparse.ArgumentParser:
     courses_parser.add_argument("--year", "--y", dest="year", default=None, help=YEAR_HELP)
     courses_parser.add_argument("--json", dest="as_json", action="store_true", help=JSON_HELP)
 
-    timetable_parser = subparsers.add_parser("timetable", help="Show the saved enrolled-course timetable")
-    timetable_parser.add_argument("action", nargs="?", choices=["list"], default="list", help="Only 'list' is supported (default)")
+    timetable_parser = subparsers.add_parser("timetable", help="Show or edit the saved enrolled-course timetable")
+    timetable_parser.add_argument(
+        "action", nargs="?", choices=["list", "add", "edit", "delete"], default="list", help="Defaults to 'list'"
+    )
+    timetable_parser.add_argument("--name", dest="name", default=None, help="Course/entry name (required for add/edit)")
+    timetable_parser.add_argument(
+        "--day", dest="day", choices=WEEKDAYS, default=None, help="Weekday (required for add/edit)"
+    )
+    timetable_parser.add_argument(
+        "--startTime", "--st", dest="start_time", default=None,
+        help="Start time: HH:MM, HHMM, H, or H.mm, any minute (required for add/edit)",
+    )
+    timetable_parser.add_argument(
+        "--endTime", "--et", dest="end_time", default=None,
+        help="End time, same format as --startTime, after --startTime (required for add/edit)",
+    )
+    timetable_parser.add_argument(
+        "--index", dest="index", type=int, default=None,
+        help="0-based entry index, see `tacpe timetable list --json` (required for edit/delete)",
+    )
     timetable_parser.add_argument("--json", dest="as_json", action="store_true", help=JSON_HELP)
 
     check_parser = subparsers.add_parser("check", help="Check for overlapping work entries across all courses in a term")
@@ -289,17 +307,66 @@ def _resolve_work(course_id: int, work_id: str) -> dict:
     return match
 
 
-def _timetable_command(as_json: bool) -> None:
+def _timetable_list_command(as_json: bool) -> None:
     """Print saved timetable entries, no login required."""
     entries = load_timetable()
     if as_json:
-        _print_json(entries)
+        _print_json([{"index": i} | e for i, e in enumerate(entries)])
         return
     if not entries:
         console.print("No timetable entries yet.")
         return
-    for entry in entries:
-        console.print(_row_label(entry))
+    for i, entry in enumerate(entries):
+        console.print(f"{i} | {_row_label(entry)}")
+
+
+def _validate_timetable_entry(name: str | None, day: str | None, start_time: str | None, end_time: str | None) -> dict:
+    """Validate add/edit timetable fields and build an entry dict, exiting on any error."""
+    missing = [n for n, v in {"--name": name, "--day": day, "--startTime/--st": start_time, "--endTime/--et": end_time}.items() if v is None]
+    if missing:
+        raise SystemExit(f"Missing required: {', '.join(missing)}")
+    start = parse_time(start_time, strict=False)
+    if start is None:
+        raise SystemExit("--startTime: invalid format")
+    end = parse_time(end_time, strict=False)
+    if end is None:
+        raise SystemExit("--endTime: invalid format")
+    if minutes(end) <= minutes(start):
+        raise SystemExit("--endTime must be after --startTime")
+    return {"name": name, "weekday": WEEKDAYS.index(day), "start": start, "end": end}
+
+
+def _resolve_timetable_index(entries: list[dict], index: int | None) -> int:
+    if index is None:
+        raise SystemExit("Missing required: --index")
+    if not (0 <= index < len(entries)):
+        raise SystemExit(f"--index: no timetable entry {index} (see `tacpe timetable list`)")
+    return index
+
+
+def _timetable_add_command(name: str | None, day: str | None, start_time: str | None, end_time: str | None) -> None:
+    entry = _validate_timetable_entry(name, day, start_time, end_time)
+    entries = load_timetable()
+    entries.append(entry)
+    save_timetable(entries)
+    console.print(f"[bold green]Added:[/bold green] {_row_label(entry)}")
+
+
+def _timetable_edit_command(index: int | None, name: str | None, day: str | None, start_time: str | None, end_time: str | None) -> None:
+    entries = load_timetable()
+    i = _resolve_timetable_index(entries, index)
+    entry = _validate_timetable_entry(name, day, start_time, end_time)
+    entries[i] = entry
+    save_timetable(entries)
+    console.print(f"[bold green]Updated:[/bold green] {_row_label(entry)}")
+
+
+def _timetable_delete_command(index: int | None) -> None:
+    entries = load_timetable()
+    i = _resolve_timetable_index(entries, index)
+    removed = entries.pop(i)
+    save_timetable(entries)
+    console.print(f"[bold red]Deleted:[/bold red] {_row_label(removed)}")
 
 
 def _check_command(term: int | None, year: str | None, as_json: bool) -> None:
@@ -633,7 +700,14 @@ def run(argv: list[str] | None = None) -> bool:
         _list_courses_command(args.term, args.year, args.as_json)
         return True
     if args.command == "timetable":
-        _timetable_command(args.as_json)
+        if args.action == "list":
+            _timetable_list_command(args.as_json)
+        elif args.action == "add":
+            _timetable_add_command(args.name, args.day, args.start_time, args.end_time)
+        elif args.action == "edit":
+            _timetable_edit_command(args.index, args.name, args.day, args.start_time, args.end_time)
+        elif args.action == "delete":
+            _timetable_delete_command(args.index)
         return True
     if args.command == "check":
         _check_command(args.term, args.year, args.as_json)
