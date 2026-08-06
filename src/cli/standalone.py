@@ -23,35 +23,58 @@ from src.helper.batch import run_batch
 console = Console()
 
 
+TERM_HELP = "Academic term, e.g. 1 (default: current term)"
+YEAR_HELP = 'Academic year, e.g. 2026, or "term/year" e.g. 1/2026 (default: current year)'
+SECTION_HELP = "Course section number, to disambiguate a courseNo with multiple sections (default: first match)"
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="tacpe")
+    parser = argparse.ArgumentParser(
+        prog="tacpe", description="CLI to add work entries into the CPE TA site, one at a time or in bulk from a CSV."
+    )
     subparsers = parser.add_subparsers(dest="command")
 
     login_parser = subparsers.add_parser("login", help="Log in and save the session cookie")
-    login_parser.add_argument("method", nargs="?", choices=["browser", "cookie"], default=None)
+    login_parser.add_argument(
+        "method", nargs="?", choices=["browser", "cookie"], default=None,
+        help="'browser' to log in via a real browser, 'cookie' to paste a Cookie header manually (default: prompt to choose)",
+    )
 
     subparsers.add_parser("logout", help="Remove the saved session cookie")
 
     courses_parser = subparsers.add_parser("courses", help="List courses you TA for")
-    courses_parser.add_argument("--term", "--t", dest="term", type=int, default=None)
-    courses_parser.add_argument("--year", "--y", dest="year", default=None)
+    courses_parser.add_argument("--term", "--t", dest="term", type=int, default=None, help=TERM_HELP)
+    courses_parser.add_argument("--year", "--y", dest="year", default=None, help=YEAR_HELP)
 
-    list_parser = subparsers.add_parser("list", help="List works for a course")
-    list_parser.add_argument("target", nargs="?", default=None, help="a courseNo/courseId")
-    list_parser.add_argument("--term", "--t", dest="term", type=int, default=None)
-    list_parser.add_argument("--year", "--y", dest="year", default=None)
-    list_parser.add_argument("--sec", "--section", dest="section", type=int, default=None)
+    list_parser = subparsers.add_parser("list", help="List work entries for a course")
+    list_parser.add_argument("target", nargs="?", default=None, help="courseNo or courseId (see `tacpe courses`)")
+    list_parser.add_argument("--term", "--t", dest="term", type=int, default=None, help=TERM_HELP)
+    list_parser.add_argument("--year", "--y", dest="year", default=None, help=YEAR_HELP)
+    list_parser.add_argument("--sec", "--section", dest="section", type=int, default=None, help=SECTION_HELP)
 
-    add_parser = subparsers.add_parser("add", help="Add a work entry to a course")
-    add_parser.add_argument("target", help="a courseNo/courseId")
-    add_parser.add_argument("--term", "--t", dest="term", type=int, default=None)
-    add_parser.add_argument("--year", "--y", dest="year", default=None)
-    add_parser.add_argument("--sec", "--section", dest="section", type=int, default=None)
-    add_parser.add_argument("--date", dest="date", default=None)
-    add_parser.add_argument("--startTime", "--st", dest="start_time", default=None)
-    add_parser.add_argument("--endTime", "--et", dest="end_time", default=None)
-    add_parser.add_argument("--work", "--task", dest="work", default=None)
-    add_parser.add_argument("--bulk", dest="bulk", default=None, help="CSV file path")
+    add_parser = subparsers.add_parser(
+        "add", help="Add a work entry to a course (single, or bulk from a CSV; no confirmation prompt)"
+    )
+    add_parser.add_argument("target", help="courseNo or courseId (see `tacpe courses`)")
+    add_parser.add_argument("--term", "--t", dest="term", type=int, default=None, help=TERM_HELP)
+    add_parser.add_argument("--year", "--y", dest="year", default=None, help=YEAR_HELP)
+    add_parser.add_argument("--sec", "--section", dest="section", type=int, default=None, help=SECTION_HELP)
+    add_parser.add_argument("--date", dest="date", default=None, help="Work date, YYYY-MM-DD (required unless --bulk)")
+    add_parser.add_argument(
+        "--startTime", "--st", dest="start_time", default=None,
+        help="Start time: HH:MM, HHMM, H, or H.mm, minutes must be 00/30 (required unless --bulk)",
+    )
+    add_parser.add_argument(
+        "--endTime", "--et", dest="end_time", default=None,
+        help="End time, same format as --startTime, at least 1hr after it (required unless --bulk)",
+    )
+    add_parser.add_argument(
+        "--work", "--task", dest="work", default=None, help="Task description (required unless --bulk)"
+    )
+    add_parser.add_argument(
+        "--bulk", dest="bulk", default=None,
+        help="CSV file path with columns date,startTime,endTime,work — instead of --date/--startTime/--endTime/--work",
+    )
 
     return parser
 
