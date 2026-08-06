@@ -20,8 +20,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("logout", help="Remove the saved session cookie")
 
-    list_parser = subparsers.add_parser("list", help="List courses, or works for a course")
-    list_parser.add_argument("target", nargs="?", default=None, help="'courses', or a courseNo/courseId")
+    courses_parser = subparsers.add_parser("courses", help="List courses you TA for")
+    courses_parser.add_argument("--term", "--t", dest="term", type=int, default=None)
+    courses_parser.add_argument("--year", "--y", dest="year", default=None)
+
+    list_parser = subparsers.add_parser("list", help="List works for a course")
+    list_parser.add_argument("target", nargs="?", default=None, help="a courseNo/courseId")
     list_parser.add_argument("--term", "--t", dest="term", type=int, default=None)
     list_parser.add_argument("--year", "--y", dest="year", default=None)
     list_parser.add_argument("--sec", "--section", dest="section", type=int, default=None)
@@ -111,11 +115,12 @@ def run(argv: list[str] | None = None) -> bool:
         logout()
         console.print("[bold green]Logged out[/bold green]")
         return True
+    if args.command == "courses":
+        _list_courses_command(args.term, args.year)
+        return True
     if args.command == "list":
         if args.target is None:
-            console.print("Available: list courses | list <courseNo|courseId>")
-        elif args.target == "courses":
-            _list_courses_command(args.term, args.year)
+            console.print("Usage: tacpe list <courseNo|courseId>")
         else:
             _list_works_command(args.target, args.term, args.year, args.section)
         return True
