@@ -29,7 +29,6 @@ Uninstall: `uv tool uninstall tacpe`.
 
 ```bash
 tacpe
-# or, from a clone: uv run python -m src.main
 ```
 
 1. **Login** - on first run, choose how to authenticate:
