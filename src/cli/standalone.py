@@ -17,6 +17,8 @@ from src.cli.work.auto_slot import (
 from src.cli.work.bulk_works import REQUIRED_COLUMNS, _validate_row, read_csv_rows
 from src.cli.work.timetable import load_timetable
 from src.cli.work.works import (
+    delete_work,
+    edit_work,
     fetch_works,
     format_date,
     format_entry_line,
@@ -102,6 +104,38 @@ def build_parser() -> argparse.ArgumentParser:
         "--force", "--no-check", dest="no_check", action="store_true",
         help="Skip the validation/overlap check",
     )
+
+    edit_parser = subparsers.add_parser(
+        "edit", help="Edit an existing work entry by workId (see `tacpe list --json`), no confirmation prompt"
+    )
+    edit_parser.add_argument("target", help="courseNo or courseId (see `tacpe courses`)")
+    edit_parser.add_argument("--workId", dest="work_id", required=True, help="Work entry ID to edit")
+    edit_parser.add_argument("--term", "--t", dest="term", type=int, default=None, help=TERM_HELP)
+    edit_parser.add_argument("--year", "--y", dest="year", default=None, help=YEAR_HELP)
+    edit_parser.add_argument("--sec", "--section", dest="section", type=int, default=None, help=SECTION_HELP)
+    edit_parser.add_argument("--date", dest="date", required=True, help="New work date, YYYY-MM-DD")
+    edit_parser.add_argument(
+        "--startTime", "--st", dest="start_time", required=True,
+        help="New start time: HH:MM, HHMM, H, or H.mm, minutes must be 00/30",
+    )
+    edit_parser.add_argument(
+        "--endTime", "--et", dest="end_time", required=True,
+        help="New end time, same format as --startTime, at least 1hr after it",
+    )
+    edit_parser.add_argument("--work", "--task", dest="work", required=True, help="New task description")
+    edit_parser.add_argument(
+        "--force", "--no-check", dest="no_check", action="store_true",
+        help="Skip the validation/overlap check",
+    )
+
+    delete_parser = subparsers.add_parser(
+        "delete", help="Delete an existing work entry by workId (see `tacpe list --json`), no confirmation prompt"
+    )
+    delete_parser.add_argument("target", help="courseNo or courseId (see `tacpe courses`)")
+    delete_parser.add_argument("--workId", dest="work_id", required=True, help="Work entry ID to delete")
+    delete_parser.add_argument("--term", "--t", dest="term", type=int, default=None, help=TERM_HELP)
+    delete_parser.add_argument("--year", "--y", dest="year", default=None, help=YEAR_HELP)
+    delete_parser.add_argument("--sec", "--section", dest="section", type=int, default=None, help=SECTION_HELP)
 
     return parser
 
@@ -204,6 +238,17 @@ def _list_works_command(identifier: str, term: int | None, year: str | None, sec
         console.print(f"{w['_id']} | {format_date(w['date'])} | {format_time(w['time'])} | {w['work']}")
 
 
+def _resolve_work(course_id: int, work_id: str) -> dict:
+    """Find a work entry by workId within a course.
+    Input: course_id (int), work_id (str).
+    Output: (dict) matching work entry; exits with an error if none found.
+    """
+    match = next((w for w in fetch_works(course_id) if w["_id"] == work_id), None)
+    if match is None:
+        raise SystemExit(f"--workId: no work entry {work_id!r} found for this course")
+    return match
+
+
 def _check_command(term: int | None, year: str | None, as_json: bool) -> None:
     """Report overlapping work entries across every course in a term, no timetable prompt."""
     if not check_login():
@@ -243,12 +288,17 @@ def _entry_issues(entry: dict, timetable: list[dict], all_works: list[dict], bat
     return issues
 
 
-def _check_entries_or_abort(entries: list[dict], reg_year: int, reg_term: int) -> None:
+def _check_entries_or_abort(
+    entries: list[dict], reg_year: int, reg_term: int, exclude_work_id: str | None = None
+) -> None:
     """Print soft-check issues for entries (hour bounds, overlaps) and abort if any are found.
-    Input: entries (list[dict]) - date/time_start/time_end/work/hours, reg_year/reg_term (int).
+    Input: entries (list[dict]) - date/time_start/time_end/work/hours, reg_year/reg_term (int),
+        exclude_work_id (str | None) - a workId to exclude from the overlap check (the entry being edited).
     """
     timetable = load_timetable()
     all_works = fetch_all_course_works(reg_year, reg_term)
+    if exclude_work_id is not None:
+        all_works = [w for w in all_works if w["_id"] != exclude_work_id]
 
     lines = [
         f"{entry['date']} {entry['time_start']}-{entry['time_end']} {entry['work']}: {issue}"
@@ -341,6 +391,54 @@ def _add_command(
     _add_single(course_id, date, start_time, end_time, work, reg_year, reg_term, no_check)
 
 
+def _edit_command(
+    target: str, work_id: str, term: int | None, year: str | None, section: int | None,
+    date: str, start_time: str, end_time: str, work: str, no_check: bool,
+) -> None:
+    """Validate, check (unless --no-check), and submit a full replacement for one work entry, no confirm prompt."""
+    if not check_login():
+        raise SystemExit("Not logged in. Run `tacpe login` first.")
+    reg_year, reg_term = _resolve_term_year(term, year)
+    course = _resolve_course(list_courses(reg_year, reg_term), target, section)
+    course_id = course["courseId"]
+    _print_course_line(course)
+    _resolve_work(course_id, work_id)
+
+    if validate_date(date) is not True:
+        raise SystemExit(f"--date: {validate_date(date)}")
+    start = parse_time(start_time)
+    if start is None:
+        raise SystemExit("--startTime: invalid format")
+    end = parse_time(end_time)
+    if end is None:
+        raise SystemExit("--endTime: invalid format")
+    if minutes(end) - minutes(start) < 60:
+        raise SystemExit("--endTime must be at least 1 hour after --startTime")
+    if validate_work(work) is not True:
+        raise SystemExit(f"--work: {validate_work(work)}")
+
+    entry = {"date": date, "work": work, "time_start": start, "time_end": end, "hours": (minutes(end) - minutes(start)) / 60}
+    if not no_check:
+        _check_entries_or_abort([entry], reg_year, reg_term, exclude_work_id=work_id)
+
+    edit_work(course_id, work_id, entry)
+    console.print(f"[bold green]Updated:[/bold green] {format_entry_line(entry)}")
+
+
+def _delete_command(target: str, work_id: str, term: int | None, year: str | None, section: int | None) -> None:
+    """Delete one work entry by workId, no confirmation prompt."""
+    if not check_login():
+        raise SystemExit("Not logged in. Run `tacpe login` first.")
+    reg_year, reg_term = _resolve_term_year(term, year)
+    course = _resolve_course(list_courses(reg_year, reg_term), target, section)
+    course_id = course["courseId"]
+    _print_course_line(course)
+    work = _resolve_work(course_id, work_id)
+
+    delete_work(course_id, work_id)
+    console.print(f"[bold red]Deleted:[/bold red] {format_date(work['date'])} | {format_time(work['time'])} | {work['work']}")
+
+
 def run(argv: list[str] | None = None) -> bool:
     """Parse argv for a standalone subcommand and run it.
     Output: (bool) True if a subcommand was handled (caller should not continue to the interactive flow).
@@ -378,5 +476,14 @@ def run(argv: list[str] | None = None) -> bool:
             args.date, args.start_time, args.end_time, args.work, args.bulk,
             args.no_check,
         )
+        return True
+    if args.command == "edit":
+        _edit_command(
+            args.target, args.work_id, args.term, args.year, args.section,
+            args.date, args.start_time, args.end_time, args.work, args.no_check,
+        )
+        return True
+    if args.command == "delete":
+        _delete_command(args.target, args.work_id, args.term, args.year, args.section)
         return True
     return False
