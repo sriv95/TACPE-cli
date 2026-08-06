@@ -4,6 +4,7 @@ from rich.console import Console
 
 from src.cli.auth import login
 from src.cli.course import select_course
+from src.cli.standalone import run as run_standalone
 from src.helper.exceptions import UserCancelled
 from src.func.update import check_update
 from src.cli.work.works import view_works
@@ -12,8 +13,10 @@ console = Console()
 
 
 def main():
-    """Run the full CLI: login, select course, enter works menu."""
+    """Run a standalone subcommand if given, else the full interactive CLI: login, select course, works menu."""
     try:
+        if run_standalone():
+            return
         check_update()
         login()
         while True:

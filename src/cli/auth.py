@@ -116,14 +116,15 @@ def test_cookie(cookie: str) -> bool:
     return success
 
 
-def login_prompt() -> str:
-    """Ask user to pick browser or manual login, run it, verify and save the result.
+def login_prompt(method: str | None = None) -> str:
+    """Ask user to pick browser or manual login (unless method is given), run it, verify and save the result.
+    Input: method (str | None) - "browser" or "manual" to skip the select prompt.
     Output: (str) validated Cookie header string.
     """
     from playwright.sync_api import Error as PlaywrightError
 
     while True:
-        method = ask(questionary.select(
+        chosen = method or ask(questionary.select(
             "How do you want to login?",
             choices=[
                 questionary.Choice("1. Browser login", value="browser"),
@@ -131,7 +132,7 @@ def login_prompt() -> str:
             ],
         ))
         try:
-            cookie = (login_browser if method == "browser" else login_manual)()
+            cookie = (login_browser if chosen == "browser" else login_manual)()
         except PlaywrightError as e:
             if "closed" not in str(e).lower():
                 raise
