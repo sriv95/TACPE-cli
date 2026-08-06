@@ -22,7 +22,7 @@ from src.cli.work.auto_slot import (
     slots_with_overlap,
 )
 from src.cli.work.bulk_works import REQUIRED_COLUMNS, _validate_row, read_csv_rows
-from src.cli.work.timetable import load_timetable
+from src.cli.work.timetable import _row_label, load_timetable
 from src.cli.work.works import (
     delete_work,
     edit_work,
@@ -70,6 +70,10 @@ def build_parser() -> argparse.ArgumentParser:
     courses_parser.add_argument("--term", "--t", dest="term", type=int, default=None, help=TERM_HELP)
     courses_parser.add_argument("--year", "--y", dest="year", default=None, help=YEAR_HELP)
     courses_parser.add_argument("--json", dest="as_json", action="store_true", help=JSON_HELP)
+
+    timetable_parser = subparsers.add_parser("timetable", help="Show the saved enrolled-course timetable")
+    timetable_parser.add_argument("action", nargs="?", choices=["list"], default="list", help="Only 'list' is supported (default)")
+    timetable_parser.add_argument("--json", dest="as_json", action="store_true", help=JSON_HELP)
 
     check_parser = subparsers.add_parser("check", help="Check for overlapping work entries across all courses in a term")
     check_parser.add_argument("--term", "--t", dest="term", type=int, default=None, help=TERM_HELP)
@@ -283,6 +287,19 @@ def _resolve_work(course_id: int, work_id: str) -> dict:
     if match is None:
         raise SystemExit(f"--workId: no work entry {work_id!r} found for this course")
     return match
+
+
+def _timetable_command(as_json: bool) -> None:
+    """Print saved timetable entries, no login required."""
+    entries = load_timetable()
+    if as_json:
+        _print_json(entries)
+        return
+    if not entries:
+        console.print("No timetable entries yet.")
+        return
+    for entry in entries:
+        console.print(_row_label(entry))
 
 
 def _check_command(term: int | None, year: str | None, as_json: bool) -> None:
@@ -614,6 +631,9 @@ def run(argv: list[str] | None = None) -> bool:
         return True
     if args.command == "courses":
         _list_courses_command(args.term, args.year, args.as_json)
+        return True
+    if args.command == "timetable":
+        _timetable_command(args.as_json)
         return True
     if args.command == "check":
         _check_command(args.term, args.year, args.as_json)
