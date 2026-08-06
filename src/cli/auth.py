@@ -1,5 +1,7 @@
 """Cookie acquisition for the CPE TA site (Microsoft Entra ID login, no plain form)."""
 
+import subprocess
+import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -62,7 +64,12 @@ def login_browser() -> str:
     """Open a real browser for CMU Entra ID login and capture the session cookies.
     Output: (str) assembled Cookie header string.
     """
-    from playwright.sync_api import Error as PlaywrightError, sync_playwright
+    try:
+        from playwright.sync_api import Error as PlaywrightError, sync_playwright
+    except ImportError:
+        raise SystemExit(
+            "playwright not installed. Run: uv tool install --force tacpe"
+        ) from None
 
     with console.status("Opening browser") as status:
         with sync_playwright() as p:
@@ -71,9 +78,15 @@ def login_browser() -> str:
             except PlaywrightError as e:
                 if "Executable doesn't exist" not in str(e):
                     raise
-                raise SystemExit(
-                    "Browser not installed. Run: uvx playwright install chromium"
-                ) from None
+                if not ask(questionary.confirm(
+                    "Chromium not installed. Install it now?", default=True,
+                )):
+                    raise SystemExit("Run: uvx playwright install chromium") from None
+                subprocess.run(
+                    [sys.executable, "-m", "playwright", "install", "chromium"],
+                    check=True,
+                )
+                browser = p.chromium.launch(headless=False)
             context = browser.new_context()
             page = context.new_page()
             page.goto(BASE_URL)
@@ -121,7 +134,10 @@ def login_prompt(method: str | None = None) -> str:
     Input: method (str | None) - "browser" or "manual" to skip the select prompt.
     Output: (str) validated Cookie header string.
     """
-    from playwright.sync_api import Error as PlaywrightError
+    try:
+        from playwright.sync_api import Error as PlaywrightError
+    except ImportError:
+        PlaywrightError = ()  # noqa: N806 — manual login never raises it, so nothing to catch
 
     while True:
         chosen = method or ask(questionary.select(
