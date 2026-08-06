@@ -9,10 +9,17 @@ from rich.console import Console
 from src.cli.auth import check_login, login_prompt, logout
 from src.cli.course import current_reg_time, list_courses
 from src.cli.work.auto_slot import (
+    _fmt,
+    _filter_by_min_start,
+    _validate_bulk_row,
+    _validate_duration,
+    default_pick,
     entry_overlap_reasons,
     fetch_all_course_works,
+    find_free_slots,
     find_overlap_conflicts,
     print_overlap_conflicts,
+    slots_with_overlap,
 )
 from src.cli.work.bulk_works import REQUIRED_COLUMNS, _validate_row, read_csv_rows
 from src.cli.work.timetable import load_timetable
@@ -126,6 +133,35 @@ def build_parser() -> argparse.ArgumentParser:
     edit_parser.add_argument(
         "--force", "--no-check", dest="no_check", action="store_true",
         help="Skip the validation/overlap check",
+    )
+
+    auto_parser = subparsers.add_parser(
+        "auto",
+        help="Auto-find a free slot and add a work entry (single, or bulk from a CSV), no confirmation prompt",
+    )
+    auto_parser.add_argument("target", help="courseNo or courseId (see `tacpe courses`)")
+    auto_parser.add_argument("--term", "--t", dest="term", type=int, default=None, help=TERM_HELP)
+    auto_parser.add_argument("--year", "--y", dest="year", default=None, help=YEAR_HELP)
+    auto_parser.add_argument("--sec", "--section", dest="section", type=int, default=None, help=SECTION_HELP)
+    auto_parser.add_argument("--date", dest="date", default=None, help="Work date, YYYY-MM-DD (required unless --bulk)")
+    auto_parser.add_argument(
+        "--workHour", "--wh", dest="work_hour", default=None,
+        help="Duration in hours, multiple of 0.5, e.g. 2 or 2.5 (required unless --bulk)",
+    )
+    auto_parser.add_argument(
+        "--work", "--task", dest="work", default=None, help="Task description (required unless --bulk)"
+    )
+    auto_parser.add_argument(
+        "--startTime", "--st", dest="start_time", default=None,
+        help="Minimum start time: HH:MM, HHMM, H, or H.mm (optional, ignored with --bulk)",
+    )
+    auto_parser.add_argument(
+        "--bulk", dest="bulk", default=None,
+        help="CSV file path with columns date,workHour,work,startTime(optional) — instead of --date/--workHour/--work/--startTime",
+    )
+    auto_parser.add_argument(
+        "--force", "--no-check", dest="no_check", action="store_true",
+        help="Skip the timetable/existing-works conflict check (places the slot at the default position, ignoring conflicts)",
     )
 
     delete_parser = subparsers.add_parser(
@@ -439,6 +475,124 @@ def _delete_command(target: str, work_id: str, term: int | None, year: str | Non
     console.print(f"[bold red]Deleted:[/bold red] {format_date(work['date'])} | {format_time(work['time'])} | {work['work']}")
 
 
+def _auto_single(
+    course_id: int, date: str, duration: float, work: str, min_start: str | None,
+    reg_year: int, reg_term: int, no_check: bool,
+) -> None:
+    """Find a free slot for a duration on a date and submit it, no confirm prompt."""
+    timetable, all_works = ([], []) if no_check else (load_timetable(), fetch_all_course_works(reg_year, reg_term))
+
+    all_slots = slots_with_overlap(date, duration, timetable, all_works)
+    if not all_slots:
+        raise SystemExit(f"No {duration:g}-hour slot fits in the day.")
+    if min_start:
+        all_slots = _filter_by_min_start(all_slots, min_start, key=lambda s: s[0], desc="slot")
+
+    free_times = [t for t, reasons in all_slots if not reasons]
+    if not free_times:
+        raise SystemExit(
+            f"No free {duration:g}-hour slot on {date}. Use --force/--no-check to place one anyway (ignoring conflicts)."
+        )
+
+    time_start = default_pick(free_times)
+    time_end = _fmt(minutes(time_start) + round(duration * 60))
+    entry = {"date": date, "work": work, "time_start": time_start, "time_end": time_end, "hours": duration}
+
+    submit_work(course_id, entry)
+    console.print(f"[bold green]Added:[/bold green] {format_entry_line(entry)}")
+
+
+def _auto_bulk(course_id: int, path: str, reg_year: int, reg_term: int, no_check: bool) -> None:
+    """Find a free slot for each valid CSV row and submit all, no confirm prompt."""
+    try:
+        rows = read_csv_rows(path, ("date", "workHour", "work"))
+    except FileNotFoundError:
+        raise SystemExit(f"--bulk: file not found: {path}")
+    if not rows:
+        raise SystemExit("--bulk: no rows to submit (missing columns or empty file)")
+
+    timetable, all_works = ([], []) if no_check else (load_timetable(), fetch_all_course_works(reg_year, reg_term))
+
+    extra_busy: dict[str, list[tuple[int, int, str]]] = {}
+    entries = []
+    for i, row in enumerate(rows, start=2):
+        parsed = _validate_bulk_row(row, i)
+        if parsed is None:
+            continue
+
+        candidates = find_free_slots(
+            parsed["date"], parsed["duration"], timetable, all_works, extra_busy.get(parsed["date"], [])
+        )
+        candidates = _filter_by_min_start(candidates, parsed["min_start"])
+        if not candidates:
+            console.print(f"[red]Row {i}: no free {parsed['duration']:g}-hour slot on {parsed['date']}.[/red]")
+            continue
+
+        time_start = default_pick(candidates)
+        time_end = _fmt(minutes(time_start) + round(parsed["duration"] * 60))
+        extra_busy.setdefault(parsed["date"], []).append(
+            (minutes(time_start), minutes(time_end), "another row in this run")
+        )
+        entries.append(
+            {"date": parsed["date"], "work": parsed["work"], "time_start": time_start, "time_end": time_end, "hours": parsed["duration"]}
+        )
+
+    if not entries:
+        raise SystemExit("--bulk: no valid rows to submit (or no free slots found)")
+
+    added, failed = run_batch(
+        entries,
+        lambda e: submit_work(course_id, e),
+        lambda e: e["date"],
+        "add",
+        lambda e: console.print(f"[bold green]Added:[/bold green] {format_entry_line(e)}"),
+    )
+    console.print(f"[bold green]Added {added} work(s).[/bold green]" + (f" [red]{failed} failed.[/red]" if failed else ""))
+
+
+def _auto_command(
+    target: str, term: int | None, year: str | None, section: int | None,
+    date: str | None, work_hour: str | None, work: str | None, start_time: str | None, bulk: str | None,
+    no_check: bool,
+) -> None:
+    if not check_login():
+        raise SystemExit("Not logged in. Run `tacpe login` first.")
+    reg_year, reg_term = _resolve_term_year(term, year)
+    course = _resolve_course(list_courses(reg_year, reg_term), target, section)
+    course_id = course["courseId"]
+    _print_course_line(course)
+
+    single_args = {"--date": date, "--workHour/--wh": work_hour, "--work/--task": work}
+    if bulk:
+        given = [name for name, val in single_args.items() if val is not None]
+        if start_time is not None:
+            given.append("--startTime/--st")
+        if given:
+            raise SystemExit(f"--bulk cannot be combined with {', '.join(given)}")
+        _auto_bulk(course_id, bulk, reg_year, reg_term, no_check)
+        return
+
+    missing = [name for name, val in single_args.items() if val is None]
+    if missing:
+        raise SystemExit(f"Missing required: {', '.join(missing)} (or use --bulk)")
+
+    if validate_date(date) is not True:
+        raise SystemExit(f"--date: {validate_date(date)}")
+    duration_ok = _validate_duration(work_hour)
+    if duration_ok is not True:
+        raise SystemExit(f"--workHour: {duration_ok}")
+    if validate_work(work) is not True:
+        raise SystemExit(f"--work: {validate_work(work)}")
+
+    min_start = None
+    if start_time is not None:
+        min_start = parse_time(start_time)
+        if min_start is None:
+            raise SystemExit("--startTime: invalid format")
+
+    _auto_single(course_id, date, float(work_hour), work, min_start, reg_year, reg_term, no_check)
+
+
 def run(argv: list[str] | None = None) -> bool:
     """Parse argv for a standalone subcommand and run it.
     Output: (bool) True if a subcommand was handled (caller should not continue to the interactive flow).
@@ -485,5 +639,12 @@ def run(argv: list[str] | None = None) -> bool:
         return True
     if args.command == "delete":
         _delete_command(args.target, args.work_id, args.term, args.year, args.section)
+        return True
+    if args.command == "auto":
+        _auto_command(
+            args.target, args.term, args.year, args.section,
+            args.date, args.work_hour, args.work, args.start_time, args.bulk,
+            args.no_check,
+        )
         return True
     return False
