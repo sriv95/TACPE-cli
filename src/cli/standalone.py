@@ -4,7 +4,7 @@ import argparse
 
 from rich.console import Console
 
-from src.cli.auth import login, login_prompt, logout
+from src.cli.auth import check_login, login_prompt, logout
 from src.cli.course import current_reg_time, list_courses
 from src.cli.work.works import fetch_works, format_date, format_time
 
@@ -57,8 +57,9 @@ def _print_course_line(ta: dict) -> None:
 
 def _list_courses_command(term: int | None, year: str | None) -> None:
     """Print courseNo/section/courseName for every course the user TAs, for a resolved term/year."""
+    if not check_login():
+        raise SystemExit("Not logged in. Run `tacpe login` first.")
     reg_year, reg_term = _resolve_term_year(term, year)
-    login()
     for ta in list_courses(reg_year, reg_term):
         _print_course_line(ta)
 
@@ -88,8 +89,9 @@ def _resolve_course(courses: list[dict], identifier: str, section: int | None) -
 
 def _list_works_command(identifier: str, term: int | None, year: str | None, section: int | None) -> None:
     """Print the works list for a course, resolved by courseNo or courseId."""
+    if not check_login():
+        raise SystemExit("Not logged in. Run `tacpe login` first.")
     reg_year, reg_term = _resolve_term_year(term, year)
-    login()
     course = _resolve_course(list_courses(reg_year, reg_term), identifier, section)
     _print_course_line(course)
     for w in fetch_works(course["courseId"]):
