@@ -237,7 +237,9 @@ def _course_row(ta: dict) -> dict:
 
 
 def _list_courses_command(term: int | None, year: str | None, as_json: bool) -> None:
-    """Print courseNo/section/courseName for every course the user TAs, for a resolved term/year."""
+    """Print courseNo/section/courseName for every course the user TAs, for a resolved term/year.
+    Input: term (int | None), year (str | None) - resolved via _resolve_term_year, as_json (bool) - JSON output instead of table.
+    """
     if not check_login():
         raise SystemExit("Not logged in. Run `tacpe login` first.")
     reg_year, reg_term = _resolve_term_year(term, year)
@@ -282,7 +284,10 @@ def _work_row(w: dict) -> dict:
 
 def _list_works_command(identifier: str, term: int | None, year: str | None, section: int | None, as_json: bool) -> None:
     """Print the works list for a course, resolved by courseNo or courseId; each row includes workId
-    (for use with the future 'edit'/'delete' commands)."""
+    (for use with the future 'edit'/'delete' commands).
+    Input: identifier (str) - courseId or courseNo, term (int | None), year (str | None),
+        section (int | None) - narrows a courseNo match, as_json (bool) - JSON output instead of table.
+    """
     if not check_login():
         raise SystemExit("Not logged in. Run `tacpe login` first.")
     reg_year, reg_term = _resolve_term_year(term, year)
@@ -308,7 +313,9 @@ def _resolve_work(course_id: int, work_id: str) -> dict:
 
 
 def _timetable_list_command(as_json: bool) -> None:
-    """Print saved timetable entries, no login required."""
+    """Print saved timetable entries, no login required.
+    Input: as_json (bool) - JSON output instead of table.
+    """
     entries = load_timetable()
     if as_json:
         _print_json([{"index": i} | e for i, e in enumerate(entries)])
@@ -321,7 +328,10 @@ def _timetable_list_command(as_json: bool) -> None:
 
 
 def _validate_timetable_entry(name: str | None, day: str | None, start_time: str | None, end_time: str | None) -> dict:
-    """Validate add/edit timetable fields and build an entry dict, exiting on any error."""
+    """Validate add/edit timetable fields and build an entry dict, exiting on any error.
+    Input: name (str | None), day (str | None), start_time (str | None), end_time (str | None) - raw CLI values.
+    Output: (dict) {name, weekday, start, end}.
+    """
     missing = [n for n, v in {"--name": name, "--day": day, "--startTime/--st": start_time, "--endTime/--et": end_time}.items() if v is None]
     if missing:
         raise SystemExit(f"Missing required: {', '.join(missing)}")
@@ -370,7 +380,9 @@ def _timetable_delete_command(index: int | None) -> None:
 
 
 def _check_command(term: int | None, year: str | None, as_json: bool) -> None:
-    """Report overlapping work entries across every course in a term, no timetable prompt."""
+    """Report overlapping work entries across every course in a term, no timetable prompt.
+    Input: term (int | None), year (str | None), as_json (bool) - JSON output instead of printed conflicts.
+    """
     if not check_login():
         raise SystemExit("Not logged in. Run `tacpe login` first.")
     reg_year, reg_term = _resolve_term_year(term, year)
@@ -437,7 +449,10 @@ def _add_single(
     course_id: int, date: str, start_time: str, end_time: str, work: str,
     reg_year: int, reg_term: int, no_check: bool,
 ) -> None:
-    """Validate, check (unless --no-check), and submit one work entry, no confirm prompt."""
+    """Validate, check (unless --no-check), and submit one work entry, no confirm prompt.
+    Input: course_id (int), date/start_time/end_time/work (str) - raw CLI values, reg_year/reg_term (int),
+        no_check (bool) - skip the soft-check.
+    """
     if validate_date(date) is not True:
         raise SystemExit(f"--date: {validate_date(date)}")
     start = parse_time(start_time)
@@ -460,7 +475,9 @@ def _add_single(
 
 
 def _add_bulk(course_id: int, path: str, reg_year: int, reg_term: int, no_check: bool) -> None:
-    """Validate, check (unless --no-check), and submit every valid row of a CSV, no confirm prompt."""
+    """Validate, check (unless --no-check), and submit every valid row of a CSV, no confirm prompt.
+    Input: course_id (int), path (str) - CSV path, reg_year/reg_term (int), no_check (bool) - skip the soft-check.
+    """
     try:
         rows = read_csv_rows(path, REQUIRED_COLUMNS)
     except FileNotFoundError:
@@ -515,7 +532,11 @@ def _edit_command(
     target: str, work_id: str, term: int | None, year: str | None, section: int | None,
     date: str, start_time: str, end_time: str, work: str, no_check: bool,
 ) -> None:
-    """Validate, check (unless --no-check), and submit a full replacement for one work entry, no confirm prompt."""
+    """Validate, check (unless --no-check), and submit a full replacement for one work entry, no confirm prompt.
+    Input: target (str) - courseId or courseNo, work_id (str), term (int | None), year (str | None),
+        section (int | None), date/start_time/end_time/work (str) - full replacement values,
+        no_check (bool) - skip the soft-check.
+    """
     if not check_login():
         raise SystemExit("Not logged in. Run `tacpe login` first.")
     reg_year, reg_term = _resolve_term_year(term, year)
@@ -546,7 +567,10 @@ def _edit_command(
 
 
 def _delete_command(target: str, work_id: str, term: int | None, year: str | None, section: int | None) -> None:
-    """Delete one work entry by workId, no confirmation prompt."""
+    """Delete one work entry by workId, no confirmation prompt.
+    Input: target (str) - courseId or courseNo, work_id (str), term (int | None), year (str | None),
+        section (int | None) - narrows a courseNo match.
+    """
     if not check_login():
         raise SystemExit("Not logged in. Run `tacpe login` first.")
     reg_year, reg_term = _resolve_term_year(term, year)
@@ -563,7 +587,10 @@ def _auto_single(
     course_id: int, date: str, duration: float, work: str, min_start: str | None,
     reg_year: int, reg_term: int, no_check: bool,
 ) -> None:
-    """Find a free slot for a duration on a date and submit it, no confirm prompt."""
+    """Find a free slot for a duration on a date and submit it, no confirm prompt.
+    Input: course_id (int), date (str), duration (float) - hours, work (str), min_start (str | None) - earliest 'HH:MM',
+        reg_year/reg_term (int), no_check (bool) - skip loading timetable/existing works.
+    """
     timetable, all_works = ([], []) if no_check else (load_timetable(), fetch_all_course_works(reg_year, reg_term))
 
     all_slots = slots_with_overlap(date, duration, timetable, all_works)
@@ -587,7 +614,9 @@ def _auto_single(
 
 
 def _auto_bulk(course_id: int, path: str, reg_year: int, reg_term: int, no_check: bool) -> None:
-    """Find a free slot for each valid CSV row and submit all, no confirm prompt."""
+    """Find a free slot for each valid CSV row and submit all, no confirm prompt.
+    Input: course_id (int), path (str) - CSV path, reg_year/reg_term (int), no_check (bool) - skip loading timetable/existing works.
+    """
     try:
         rows = read_csv_rows(path, ("date", "workHour", "work"))
     except FileNotFoundError:
@@ -679,6 +708,7 @@ def _auto_command(
 
 def run(argv: list[str] | None = None) -> bool:
     """Parse argv for a standalone subcommand and run it.
+    Input: argv (list[str] | None) - defaults to sys.argv when None.
     Output: (bool) True if a subcommand was handled (caller should not continue to the interactive flow).
     """
     args = build_parser().parse_args(argv)

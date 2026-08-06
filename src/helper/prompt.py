@@ -8,7 +8,7 @@ from src.helper.exceptions import UserCancelled
 def ask(question):
     """Run a questionary prompt, raising UserCancelled instead of returning None on Ctrl-C/Esc.
     Input: question - an unstarted questionary Question.
-    Output: the prompt's answer.
+    Output: (Any) the prompt's answer.
     """
     answer = question.ask()
     if answer is None:

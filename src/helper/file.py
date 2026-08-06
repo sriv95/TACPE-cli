@@ -7,8 +7,7 @@ import sys
 
 def browse_file() -> str | None:
     """Open native file picker (tkinter, else OS-provided command).
-    Output: (str | None) chosen file path, or None if cancelled.
-    Raises: FileNotFoundError if no picker is available on this OS.
+    Output: (str | None) chosen file path, or None if cancelled; raises FileNotFoundError if no picker is available.
     """
     try:
         return _browse_file_tkinter()
@@ -31,7 +30,9 @@ def _browse_file_tkinter() -> str | None:
 
 
 def _browse_file_os() -> str | None:
-    """Raises: FileNotFoundError if no native picker is available on this OS."""
+    """Try each OS-provided file-picker command in turn.
+    Output: (str | None) chosen file path, or None if cancelled; raises FileNotFoundError if none available.
+    """
     if sys.platform == "darwin":
         script = 'POSIX path of (choose file with prompt "Select CSV file" of type {"csv"})'
         result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)

@@ -18,7 +18,7 @@ RETRY_WAITS = (1, 5, 10, 30)
 def retry_with_backoff(waits: tuple[int, ...] = RETRY_WAITS):
     """Decorator: retry a function on urllib.error.URLError with growing backoff, forever.
     Input: waits (tuple[int, ...]) - wait seconds per attempt, last value repeats once exhausted.
-    Output: decorator wrapping the target function with the same signature.
+    Output: (callable) decorator wrapping the target function with the same signature.
     """
 
     def decorator(func):

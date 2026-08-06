@@ -41,7 +41,10 @@ AUTO_SLOT_CSV_INSTRUCTION = (
 
 
 def _fmt(t: int) -> str:
-    """Minutes-since-midnight to 'HH:MM'."""
+    """Minutes-since-midnight to 'HH:MM'.
+    Input: t (int) - minutes since midnight.
+    Output: (str) 'HH:MM'.
+    """
     return f"{t // 60:02d}:{t % 60:02d}"
 
 
