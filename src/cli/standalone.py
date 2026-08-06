@@ -1,6 +1,7 @@
 """Non-interactive CLI subcommands (e.g. `tacpe login browser`), separate from the default interactive flow."""
 
 import argparse
+from importlib.metadata import version
 
 from rich.console import Console
 
@@ -32,7 +33,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="tacpe", description="CLI to add work entries into the CPE TA site, one at a time or in bulk from a CSV."
     )
+    parser.add_argument("--version", action="version", version=f"tacpe {version('tacpe')}")
     subparsers = parser.add_subparsers(dest="command")
+
+    subparsers.add_parser("help", help="Show this help message")
+    subparsers.add_parser("version", help="Show the installed version")
 
     login_parser = subparsers.add_parser("login", help="Log in and save the session cookie")
     login_parser.add_argument(
@@ -221,6 +226,12 @@ def run(argv: list[str] | None = None) -> bool:
     Output: (bool) True if a subcommand was handled (caller should not continue to the interactive flow).
     """
     args = build_parser().parse_args(argv)
+    if args.command == "help":
+        build_parser().print_help()
+        return True
+    if args.command == "version":
+        console.print(f"tacpe {version('tacpe')}")
+        return True
     if args.command == "login":
         method = "manual" if args.method == "cookie" else args.method
         login_prompt(method)
