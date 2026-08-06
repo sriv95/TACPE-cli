@@ -6,7 +6,19 @@ from rich.console import Console
 
 from src.cli.auth import check_login, login_prompt, logout
 from src.cli.course import current_reg_time, list_courses
-from src.cli.work.works import fetch_works, format_date, format_time
+from src.cli.work.bulk_works import REQUIRED_COLUMNS, _validate_row, read_csv_rows
+from src.cli.work.works import (
+    fetch_works,
+    format_date,
+    format_entry_line,
+    format_time,
+    minutes,
+    parse_time,
+    submit_work,
+    validate_date,
+    validate_work,
+)
+from src.helper.batch import run_batch
 
 console = Console()
 
@@ -29,6 +41,17 @@ def build_parser() -> argparse.ArgumentParser:
     list_parser.add_argument("--term", "--t", dest="term", type=int, default=None)
     list_parser.add_argument("--year", "--y", dest="year", default=None)
     list_parser.add_argument("--sec", "--section", dest="section", type=int, default=None)
+
+    add_parser = subparsers.add_parser("add", help="Add a work entry to a course")
+    add_parser.add_argument("target", help="a courseNo/courseId")
+    add_parser.add_argument("--term", "--t", dest="term", type=int, default=None)
+    add_parser.add_argument("--year", "--y", dest="year", default=None)
+    add_parser.add_argument("--sec", "--section", dest="section", type=int, default=None)
+    add_parser.add_argument("--date", dest="date", default=None)
+    add_parser.add_argument("--startTime", "--st", dest="start_time", default=None)
+    add_parser.add_argument("--endTime", "--et", dest="end_time", default=None)
+    add_parser.add_argument("--work", "--task", dest="work", default=None)
+    add_parser.add_argument("--bulk", dest="bulk", default=None, help="CSV file path")
 
     return parser
 
@@ -102,6 +125,74 @@ def _list_works_command(identifier: str, term: int | None, year: str | None, sec
         console.print(f"{format_date(w['date'])} | {format_time(w['time'])} | {w['work']}")
 
 
+def _add_single(course_id: int, date: str, start_time: str, end_time: str, work: str) -> None:
+    """Validate and submit one work entry, no confirm/overlap check."""
+    if validate_date(date) is not True:
+        raise SystemExit(f"--date: {validate_date(date)}")
+    start = parse_time(start_time)
+    if start is None:
+        raise SystemExit("--startTime: invalid format")
+    end = parse_time(end_time)
+    if end is None:
+        raise SystemExit("--endTime: invalid format")
+    if minutes(end) - minutes(start) < 60:
+        raise SystemExit("--endTime must be at least 1 hour after --startTime")
+    if validate_work(work) is not True:
+        raise SystemExit(f"--work: {validate_work(work)}")
+
+    entry = {"date": date, "work": work, "time_start": start, "time_end": end, "hours": (minutes(end) - minutes(start)) / 60}
+    submit_work(course_id, entry)
+    console.print(f"[bold green]Added:[/bold green] {format_entry_line(entry)}")
+
+
+def _add_bulk(course_id: int, path: str) -> None:
+    """Validate and submit every valid row of a CSV, no confirm/overlap check."""
+    try:
+        rows = read_csv_rows(path, REQUIRED_COLUMNS)
+    except FileNotFoundError:
+        raise SystemExit(f"--bulk: file not found: {path}")
+    if not rows:
+        raise SystemExit("--bulk: no rows to submit (missing columns or empty file)")
+
+    entries = [entry for i, row in enumerate(rows, start=2) if (entry := _validate_row(row, i))]
+    if not entries:
+        raise SystemExit("--bulk: no valid rows to submit")
+
+    added, failed = run_batch(
+        entries,
+        lambda e: submit_work(course_id, e),
+        lambda e: e["date"],
+        "add",
+        lambda e: console.print(f"[bold green]Added:[/bold green] {format_entry_line(e, with_hours=False)}"),
+    )
+    console.print(f"[bold green]Added {added} work(s).[/bold green]" + (f" [red]{failed} failed.[/red]" if failed else ""))
+
+
+def _add_command(
+    target: str, term: int | None, year: str | None, section: int | None,
+    date: str | None, start_time: str | None, end_time: str | None, work: str | None, bulk: str | None,
+) -> None:
+    if not check_login():
+        raise SystemExit("Not logged in. Run `tacpe login` first.")
+    reg_year, reg_term = _resolve_term_year(term, year)
+    course = _resolve_course(list_courses(reg_year, reg_term), target, section)
+    course_id = course["courseId"]
+    _print_course_line(course)
+
+    single_args = {"--date": date, "--startTime/--st": start_time, "--endTime/--et": end_time, "--work/--task": work}
+    if bulk:
+        given = [name for name, val in single_args.items() if val is not None]
+        if given:
+            raise SystemExit(f"--bulk cannot be combined with {', '.join(given)}")
+        _add_bulk(course_id, bulk)
+        return
+
+    missing = [name for name, val in single_args.items() if val is None]
+    if missing:
+        raise SystemExit(f"Missing required: {', '.join(missing)} (or use --bulk)")
+    _add_single(course_id, date, start_time, end_time, work)
+
+
 def run(argv: list[str] | None = None) -> bool:
     """Parse argv for a standalone subcommand and run it.
     Output: (bool) True if a subcommand was handled (caller should not continue to the interactive flow).
@@ -123,5 +214,11 @@ def run(argv: list[str] | None = None) -> bool:
             console.print("Usage: tacpe list <courseNo|courseId>")
         else:
             _list_works_command(args.target, args.term, args.year, args.section)
+        return True
+    if args.command == "add":
+        _add_command(
+            args.target, args.term, args.year, args.section,
+            args.date, args.start_time, args.end_time, args.work, args.bulk,
+        )
         return True
     return False
