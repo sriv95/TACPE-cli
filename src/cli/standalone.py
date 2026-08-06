@@ -7,7 +7,12 @@ from rich.console import Console
 
 from src.cli.auth import check_login, login_prompt, logout
 from src.cli.course import current_reg_time, list_courses
-from src.cli.work.auto_slot import find_overlap_conflicts, print_overlap_conflicts
+from src.cli.work.auto_slot import (
+    entry_overlap_reasons,
+    fetch_all_course_works,
+    find_overlap_conflicts,
+    print_overlap_conflicts,
+)
 from src.cli.work.bulk_works import REQUIRED_COLUMNS, _validate_row, read_csv_rows
 from src.cli.work.timetable import load_timetable
 from src.cli.work.works import (
@@ -64,7 +69,8 @@ def build_parser() -> argparse.ArgumentParser:
     list_parser.add_argument("--sec", "--section", dest="section", type=int, default=None, help=SECTION_HELP)
 
     add_parser = subparsers.add_parser(
-        "add", help="Add a work entry to a course (single, or bulk from a CSV; no confirmation prompt)"
+        "add",
+        help="Add a work entry to a course (single, or bulk from a CSV; checks for issues, no confirmation prompt)",
     )
     add_parser.add_argument("target", help="courseNo or courseId (see `tacpe courses`)")
     add_parser.add_argument("--term", "--t", dest="term", type=int, default=None, help=TERM_HELP)
@@ -85,6 +91,10 @@ def build_parser() -> argparse.ArgumentParser:
     add_parser.add_argument(
         "--bulk", dest="bulk", default=None,
         help="CSV file path with columns date,startTime,endTime,work — instead of --date/--startTime/--endTime/--work",
+    )
+    add_parser.add_argument(
+        "--force", "--no-check", dest="no_check", action="store_true",
+        help="Skip the validation/overlap check",
     )
 
     return parser
@@ -168,8 +178,57 @@ def _check_command(term: int | None, year: str | None) -> None:
     print_overlap_conflicts(find_overlap_conflicts(courses, load_timetable()))
 
 
-def _add_single(course_id: int, date: str, start_time: str, end_time: str, work: str) -> None:
-    """Validate and submit one work entry, no confirm/overlap check."""
+def _entry_issues(entry: dict, timetable: list[dict], all_works: list[dict], batch: list[dict]) -> list[str]:
+    """Collect soft-check issues for one entry: hour bounds, and overlap vs timetable/other works/batch.
+    Input: entry (dict) - date/time_start/time_end/work/hours, timetable (list[dict]),
+        all_works (list[dict]) - existing work entries across courses, batch (list[dict]) - the other
+        entries in the same submission, to also check against.
+    Output: (list[str]) issue descriptions, [] if none.
+    """
+    issues = []
+    if entry["hours"] % 1 != 0:
+        issues.append(f"{entry['hours']:g} hrs is not a whole number of hours")
+    if entry["hours"] > 4:
+        issues.append(f"{entry['hours']:g} hrs exceeds max 4 hours")
+
+    extra_busy = [
+        (minutes(o["time_start"]), minutes(o["time_end"]), f"another row in this batch: {o['work']}")
+        for o in batch
+        if o is not entry and o["date"] == entry["date"]
+    ]
+    reasons = entry_overlap_reasons(
+        entry["date"], entry["time_start"], entry["time_end"], timetable, all_works, extra_busy
+    )
+    issues.extend(f"overlaps {r}" for r in reasons)
+
+    return issues
+
+
+def _check_entries_or_abort(entries: list[dict], reg_year: int, reg_term: int) -> None:
+    """Print soft-check issues for entries (hour bounds, overlaps) and abort if any are found.
+    Input: entries (list[dict]) - date/time_start/time_end/work/hours, reg_year/reg_term (int).
+    """
+    timetable = load_timetable()
+    all_works = fetch_all_course_works(reg_year, reg_term)
+
+    lines = [
+        f"{entry['date']} {entry['time_start']}-{entry['time_end']} {entry['work']}: {issue}"
+        for entry in entries
+        for issue in _entry_issues(entry, timetable, all_works, entries)
+    ]
+    if not lines:
+        return
+
+    for line in lines:
+        console.print(f"[yellow]Warning: {line}[/yellow]")
+    raise SystemExit(f"{len(lines)} check(s) failed. Use --force/--no-check to skip checking.")
+
+
+def _add_single(
+    course_id: int, date: str, start_time: str, end_time: str, work: str,
+    reg_year: int, reg_term: int, no_check: bool,
+) -> None:
+    """Validate, check (unless --no-check), and submit one work entry, no confirm prompt."""
     if validate_date(date) is not True:
         raise SystemExit(f"--date: {validate_date(date)}")
     start = parse_time(start_time)
@@ -184,12 +243,15 @@ def _add_single(course_id: int, date: str, start_time: str, end_time: str, work:
         raise SystemExit(f"--work: {validate_work(work)}")
 
     entry = {"date": date, "work": work, "time_start": start, "time_end": end, "hours": (minutes(end) - minutes(start)) / 60}
+    if not no_check:
+        _check_entries_or_abort([entry], reg_year, reg_term)
+
     submit_work(course_id, entry)
     console.print(f"[bold green]Added:[/bold green] {format_entry_line(entry)}")
 
 
-def _add_bulk(course_id: int, path: str) -> None:
-    """Validate and submit every valid row of a CSV, no confirm/overlap check."""
+def _add_bulk(course_id: int, path: str, reg_year: int, reg_term: int, no_check: bool) -> None:
+    """Validate, check (unless --no-check), and submit every valid row of a CSV, no confirm prompt."""
     try:
         rows = read_csv_rows(path, REQUIRED_COLUMNS)
     except FileNotFoundError:
@@ -200,6 +262,9 @@ def _add_bulk(course_id: int, path: str) -> None:
     entries = [entry for i, row in enumerate(rows, start=2) if (entry := _validate_row(row, i))]
     if not entries:
         raise SystemExit("--bulk: no valid rows to submit")
+
+    if not no_check:
+        _check_entries_or_abort(entries, reg_year, reg_term)
 
     added, failed = run_batch(
         entries,
@@ -214,6 +279,7 @@ def _add_bulk(course_id: int, path: str) -> None:
 def _add_command(
     target: str, term: int | None, year: str | None, section: int | None,
     date: str | None, start_time: str | None, end_time: str | None, work: str | None, bulk: str | None,
+    no_check: bool,
 ) -> None:
     if not check_login():
         raise SystemExit("Not logged in. Run `tacpe login` first.")
@@ -227,13 +293,13 @@ def _add_command(
         given = [name for name, val in single_args.items() if val is not None]
         if given:
             raise SystemExit(f"--bulk cannot be combined with {', '.join(given)}")
-        _add_bulk(course_id, bulk)
+        _add_bulk(course_id, bulk, reg_year, reg_term, no_check)
         return
 
     missing = [name for name, val in single_args.items() if val is None]
     if missing:
         raise SystemExit(f"Missing required: {', '.join(missing)} (or use --bulk)")
-    _add_single(course_id, date, start_time, end_time, work)
+    _add_single(course_id, date, start_time, end_time, work, reg_year, reg_term, no_check)
 
 
 def run(argv: list[str] | None = None) -> bool:
@@ -271,6 +337,7 @@ def run(argv: list[str] | None = None) -> bool:
         _add_command(
             args.target, args.term, args.year, args.section,
             args.date, args.start_time, args.end_time, args.work, args.bulk,
+            args.no_check,
         )
         return True
     return False

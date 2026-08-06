@@ -29,7 +29,7 @@ class SlotsWithOverlapTest(unittest.TestCase):
         self.assertEqual(slots, [])
 
     def test_extra_busy_blocks_slot(self):
-        slots = dict(slots_with_overlap("2026-08-06", 1, [], [], extra_busy=[(600, 660)]))
+        slots = dict(slots_with_overlap("2026-08-06", 1, [], [], extra_busy=[(600, 660, "busy")]))
         self.assertTrue(slots["10:00"])
 
     def test_existing_work_on_other_date_ignored(self):

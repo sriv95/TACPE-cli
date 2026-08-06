@@ -45,11 +45,13 @@ def _fmt(t: int) -> str:
     return f"{t // 60:02d}:{t % 60:02d}"
 
 
-def fetch_all_course_works() -> list[dict]:
-    """Fetch work entries across every course TAd in the active academic term.
+def fetch_all_course_works(reg_year: int | None = None, reg_term: int | None = None) -> list[dict]:
+    """Fetch work entries across every course TAd in a term.
+    Input: reg_year (int | None), reg_term (int | None) - term to pool from, default: the active term.
     Output: (list[dict]) work dicts (date/time), pooled from all courses.
     """
-    reg_year, reg_term = current_reg_time()
+    if reg_year is None:
+        reg_year, reg_term = current_reg_time()
     courses = list_courses(reg_year, reg_term)
     works = []
     for c in courses:
@@ -58,32 +60,24 @@ def fetch_all_course_works() -> list[dict]:
 
 
 def find_overlap_conflicts(courses: list[dict], timetable: list[dict]) -> list[str]:
-    """Find overlapping work entries across courses, and against a timetable.
+    """Find overlapping work entries across courses (lunch/timetable/each other), via entry_overlap_reasons.
     Input: courses (list[dict]) - TA/course dicts, timetable (list[dict]).
     Output: (list[str]) human-readable conflict descriptions.
     """
-    entries = []
+    works = []
     for c in courses:
         label = f"{c['course']['courseTemplate']['courseNo']} | Sec:{c['course']['section']:03d}"
-        for w in fetch_works(c["courseId"]):
-            start, end = split_time(w["time"])
-            entries.append((format_date(w["date"]), minutes(start), minutes(end), label, w["work"]))
+        works.extend({**w, "_label": label} for w in fetch_works(c["courseId"]))
+
+    def labeled(w: dict) -> str:
+        return f"[{w['_label']}] {w['work']}"
 
     conflicts = []
-    for i in range(len(entries)):
-        d1, s1, e1, l1, w1 = entries[i]
-        for d2, s2, e2, l2, w2 in entries[i + 1 :]:
-            if d1 == d2 and s1 < e2 and s2 < e1:
-                conflicts.append(
-                    f"{d1}: [{l1}] {w1} ({_fmt(s1)}-{_fmt(e1)}) overlaps [{l2}] {w2} ({_fmt(s2)}-{_fmt(e2)})"
-                )
-        weekday = datetime.strptime(d1, "%Y-%m-%d").weekday()
-        for te in entries_for_weekday(timetable, weekday):
-            ts, te_end = minutes(te["start"]), minutes(te["end"])
-            if s1 < te_end and ts < e1:
-                conflicts.append(
-                    f"{d1}: [{l1}] {w1} ({_fmt(s1)}-{_fmt(e1)}) overlaps timetable: {te['name']} ({te['start']}-{te['end']})"
-                )
+    for i, w in enumerate(works):
+        date_str = format_date(w["date"])
+        start, end = split_time(w["time"])
+        reasons = entry_overlap_reasons(date_str, start, end, timetable, works[i + 1 :], work_label=labeled)
+        conflicts.extend(f"{date_str}: {labeled(w)} ({start}-{end}) overlaps {r}" for r in reasons)
     return conflicts
 
 
@@ -110,12 +104,21 @@ def check_overlap_all_courses(reg_year: int, reg_term: int) -> None:
     print_overlap_conflicts(find_overlap_conflicts(courses, timetable))
 
 
+def _default_work_label(w: dict) -> str:
+    return f"existing work: {w['work']}"
+
+
 def _busy_ranges(
-    date_str: str, timetable: list[dict], all_works: list[dict], extra_busy: list[tuple[int, int]] = ()
+    date_str: str,
+    timetable: list[dict],
+    all_works: list[dict],
+    extra_busy: list[tuple[int, int, str]] = (),
+    work_label=_default_work_label,
 ) -> list[tuple[int, int, str]]:
-    """Build the list of busy minute ranges (lunch + timetable + existing works) for a date.
+    """Build the list of busy minute ranges (lunch + timetable + existing works + extras) for a date.
     Input: date_str (str) - YYYY-MM-DD, timetable (list[dict]), all_works (list[dict]),
-        extra_busy (list[tuple]) - extra ranges to also treat as busy.
+        extra_busy (list[tuple[int, int, str]]) - extra (start_min, end_min, label) ranges,
+        work_label (callable) - builds a work's busy-range label from its dict.
     Output: (list[tuple[int, int, str]]) (start_min, end_min, label) ranges.
     """
     weekday = datetime.strptime(date_str, "%Y-%m-%d").weekday()
@@ -129,9 +132,34 @@ def _busy_ranges(
         if format_date(w["date"]) != date_str:
             continue
         start, end = split_time(w["time"])
-        busy.append((minutes(start), minutes(end), f"existing work: {w['work']}"))
-    busy.extend((s, e, "another row in this run") for s, e in extra_busy)
+        busy.append((minutes(start), minutes(end), work_label(w)))
+    busy.extend(extra_busy)
     return busy
+
+
+def entry_overlap_reasons(
+    date_str: str,
+    time_start: str,
+    time_end: str,
+    timetable: list[dict],
+    all_works: list[dict],
+    extra_busy: list[tuple[int, int, str]] = (),
+    work_label=_default_work_label,
+) -> list[str]:
+    """Find overlap reasons (lunch/timetable/other works/extras) for an explicit time range on a date.
+    Input: date_str (str) - YYYY-MM-DD, time_start/time_end (str) - 'HH:MM', timetable (list[dict]),
+        all_works (list[dict]) - work entries across courses, extra_busy (list[tuple[int, int, str]]) -
+        extra (start_min, end_min, label) ranges to also treat as busy, work_label (callable) -
+        builds a work's busy-range label from its dict.
+    Output: (list[str]) overlap reasons, [] if none.
+    """
+    busy = _busy_ranges(date_str, timetable, all_works, extra_busy, work_label)
+    start_min, end_min = minutes(time_start), minutes(time_end)
+    return [
+        f"{label} ({_fmt(b_start)}-{_fmt(b_end)})"
+        for b_start, b_end, label in busy
+        if start_min < b_end and end_min > b_start
+    ]
 
 
 def slots_with_overlap(
@@ -139,13 +167,13 @@ def slots_with_overlap(
     duration_hours: float,
     timetable: list[dict],
     all_works: list[dict],
-    extra_busy: list[tuple[int, int]] = (),
+    extra_busy: list[tuple[int, int, str]] = (),
 ) -> list[tuple[str, list[str]]]:
     """Enumerate every start-time candidate for a duration on a date (30-min grid, 00:00-23:30),
     each with the reasons (if any) it overlaps lunch/timetable/existing works.
     Input: date_str (str) - YYYY-MM-DD, duration_hours (float), timetable (list[dict]),
-        all_works (list[dict]) - work entries across courses, extra_busy (list[tuple]) -
-        extra minute ranges to also treat as busy (e.g. already-placed rows in this run).
+        all_works (list[dict]) - work entries across courses, extra_busy (list[tuple[int, int, str]]) -
+        extra (start_min, end_min, label) ranges to also treat as busy (e.g. already-placed rows in this run).
     Output: (list[tuple[str, list[str]]]) (start 'HH:MM', overlap reasons - empty if free), ascending.
     """
     busy = _busy_ranges(date_str, timetable, all_works, extra_busy)
@@ -170,7 +198,7 @@ def find_free_slots(
     duration_hours: float,
     timetable: list[dict],
     all_works: list[dict],
-    extra_busy: list[tuple[int, int]] = (),
+    extra_busy: list[tuple[int, int, str]] = (),
 ) -> list[str]:
     """Enumerate free (non-overlapping) start times for a duration on a date.
     Input: same as slots_with_overlap.
@@ -354,7 +382,7 @@ def auto_find_slot_bulk(course_id: int) -> None:
         return
 
     all_works = fetch_all_course_works()
-    extra_busy: dict[str, list[tuple[int, int]]] = {}
+    extra_busy: dict[str, list[tuple[int, int, str]]] = {}
     entries = []
     for i, row in enumerate(rows, start=2):
         parsed = _validate_bulk_row(row, i)
@@ -371,7 +399,9 @@ def auto_find_slot_bulk(course_id: int) -> None:
 
         time_start = default_pick(candidates)
         time_end = _fmt(minutes(time_start) + round(parsed["duration"] * 60))
-        extra_busy.setdefault(parsed["date"], []).append((minutes(time_start), minutes(time_end)))
+        extra_busy.setdefault(parsed["date"], []).append(
+            (minutes(time_start), minutes(time_end), "another row in this run")
+        )
         entries.append(
             {
                 "date": parsed["date"],
