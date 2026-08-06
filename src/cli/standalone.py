@@ -1,6 +1,7 @@
 """Non-interactive CLI subcommands (e.g. `tacpe login browser`), separate from the default interactive flow."""
 
 import argparse
+import json
 from importlib.metadata import version
 
 from rich.console import Console
@@ -22,6 +23,7 @@ from src.cli.work.works import (
     format_time,
     minutes,
     parse_time,
+    split_time,
     submit_work,
     validate_date,
     validate_work,
@@ -34,6 +36,7 @@ console = Console()
 TERM_HELP = "Academic term, e.g. 1 (default: current term)"
 YEAR_HELP = 'Academic year, e.g. 2026, or "term/year" e.g. 1/2026 (default: current year)'
 SECTION_HELP = "Course section number, to disambiguate a courseNo with multiple sections (default: first match)"
+JSON_HELP = "Output as JSON instead of formatted text"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -57,16 +60,19 @@ def build_parser() -> argparse.ArgumentParser:
     courses_parser = subparsers.add_parser("courses", help="List courses you TA for")
     courses_parser.add_argument("--term", "--t", dest="term", type=int, default=None, help=TERM_HELP)
     courses_parser.add_argument("--year", "--y", dest="year", default=None, help=YEAR_HELP)
+    courses_parser.add_argument("--json", dest="as_json", action="store_true", help=JSON_HELP)
 
     check_parser = subparsers.add_parser("check", help="Check for overlapping work entries across all courses in a term")
     check_parser.add_argument("--term", "--t", dest="term", type=int, default=None, help=TERM_HELP)
     check_parser.add_argument("--year", "--y", dest="year", default=None, help=YEAR_HELP)
+    check_parser.add_argument("--json", dest="as_json", action="store_true", help=JSON_HELP)
 
     list_parser = subparsers.add_parser("list", help="List work entries for a course")
     list_parser.add_argument("target", nargs="?", default=None, help="courseNo or courseId (see `tacpe courses`)")
     list_parser.add_argument("--term", "--t", dest="term", type=int, default=None, help=TERM_HELP)
     list_parser.add_argument("--year", "--y", dest="year", default=None, help=YEAR_HELP)
     list_parser.add_argument("--sec", "--section", dest="section", type=int, default=None, help=SECTION_HELP)
+    list_parser.add_argument("--json", dest="as_json", action="store_true", help=JSON_HELP)
 
     add_parser = subparsers.add_parser(
         "add",
@@ -121,17 +127,33 @@ def _resolve_term_year(term: int | None, year: str | None) -> tuple[int, int]:
     return int(year), resolved_term
 
 
+def _print_json(data) -> None:
+    """Print data as indented JSON, bypassing Rich markup parsing.
+    Input: data - JSON-serializable.
+    """
+    print(json.dumps(data, indent=2))
+
+
 def _print_course_line(ta: dict) -> None:
     template = ta["course"]["courseTemplate"]
     console.print(f"{template['courseNo']} | Sec:{ta['course']['section']:03d} | {template['courseName']}")
 
 
-def _list_courses_command(term: int | None, year: str | None) -> None:
+def _course_row(ta: dict) -> dict:
+    template = ta["course"]["courseTemplate"]
+    return {"courseId": ta["courseId"], "courseNo": template["courseNo"], "section": ta["course"]["section"], "courseName": template["courseName"]}
+
+
+def _list_courses_command(term: int | None, year: str | None, as_json: bool) -> None:
     """Print courseNo/section/courseName for every course the user TAs, for a resolved term/year."""
     if not check_login():
         raise SystemExit("Not logged in. Run `tacpe login` first.")
     reg_year, reg_term = _resolve_term_year(term, year)
-    for ta in list_courses(reg_year, reg_term):
+    courses = list_courses(reg_year, reg_term)
+    if as_json:
+        _print_json([_course_row(ta) for ta in courses])
+        return
+    for ta in courses:
         _print_course_line(ta)
 
 
@@ -158,24 +180,41 @@ def _resolve_course(courses: list[dict], identifier: str, section: int | None) -
     return matches[0]
 
 
-def _list_works_command(identifier: str, term: int | None, year: str | None, section: int | None) -> None:
-    """Print the works list for a course, resolved by courseNo or courseId."""
+def _work_row(w: dict) -> dict:
+    start, end = split_time(w["time"])
+    return {
+        "workId": w["_id"], "date": format_date(w["date"]), "startTime": start, "endTime": end,
+        "hours": (minutes(end) - minutes(start)) / 60, "work": w["work"],
+    }
+
+
+def _list_works_command(identifier: str, term: int | None, year: str | None, section: int | None, as_json: bool) -> None:
+    """Print the works list for a course, resolved by courseNo or courseId; each row includes workId
+    (for use with the future 'edit'/'delete' commands)."""
     if not check_login():
         raise SystemExit("Not logged in. Run `tacpe login` first.")
     reg_year, reg_term = _resolve_term_year(term, year)
     course = _resolve_course(list_courses(reg_year, reg_term), identifier, section)
+    works = fetch_works(course["courseId"])
+    if as_json:
+        _print_json(_course_row(course) | {"works": [_work_row(w) for w in works]})
+        return
     _print_course_line(course)
-    for w in fetch_works(course["courseId"]):
-        console.print(f"{format_date(w['date'])} | {format_time(w['time'])} | {w['work']}")
+    for w in works:
+        console.print(f"{w['_id']} | {format_date(w['date'])} | {format_time(w['time'])} | {w['work']}")
 
 
-def _check_command(term: int | None, year: str | None) -> None:
+def _check_command(term: int | None, year: str | None, as_json: bool) -> None:
     """Report overlapping work entries across every course in a term, no timetable prompt."""
     if not check_login():
         raise SystemExit("Not logged in. Run `tacpe login` first.")
     reg_year, reg_term = _resolve_term_year(term, year)
     courses = list_courses(reg_year, reg_term)
-    print_overlap_conflicts(find_overlap_conflicts(courses, load_timetable()))
+    conflicts = find_overlap_conflicts(courses, load_timetable())
+    if as_json:
+        _print_json({"conflicts": conflicts})
+        return
+    print_overlap_conflicts(conflicts)
 
 
 def _entry_issues(entry: dict, timetable: list[dict], all_works: list[dict], batch: list[dict]) -> list[str]:
@@ -322,16 +361,16 @@ def run(argv: list[str] | None = None) -> bool:
         console.print("[bold green]Logged out[/bold green]")
         return True
     if args.command == "courses":
-        _list_courses_command(args.term, args.year)
+        _list_courses_command(args.term, args.year, args.as_json)
         return True
     if args.command == "check":
-        _check_command(args.term, args.year)
+        _check_command(args.term, args.year, args.as_json)
         return True
     if args.command == "list":
         if args.target is None:
             console.print("Usage: tacpe list <courseNo|courseId>")
         else:
-            _list_works_command(args.target, args.term, args.year, args.section)
+            _list_works_command(args.target, args.term, args.year, args.section, args.as_json)
         return True
     if args.command == "add":
         _add_command(
