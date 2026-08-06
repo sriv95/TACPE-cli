@@ -5,7 +5,7 @@ CLI that adds TA work entries into the CPE TA site, single or in bulk from a CSV
 ## Prerequisite
 
 - Python >=3.14
-- [uv](https://docs.astral.sh/uv/) (provides `uvx`) or [pipx](https://pipx.pypa.io/)
+- [uv](https://docs.astral.sh/uv/) (provides `uvx`)
 - [Playwright](https://playwright.dev/python/) (optional for browser login )
 `uvx playwright install chromium`
 
@@ -21,14 +21,9 @@ Using [uv](https://docs.astral.sh/uv/)
 uv tool install git+https://github.com/sriv95/TACPE-cli
 ```
 
-Using [pipx](https://pipx.pypa.io/)
-```bash
-pipx install git+https://github.com/sriv95/TACPE-cli
-```
+Force Update: `uv tool upgrade tacpe`
 
-Force Update: `uv tool upgrade tacpe` (or `pipx upgrade tacpe`)
-
-Uninstall: `uv tool uninstall tacpe` (or `pipx uninstall tacpe`).
+Uninstall: `uv tool uninstall tacpe`.
 
 ## Usage
 
