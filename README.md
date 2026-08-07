@@ -89,6 +89,14 @@ date,workHour,work,startTime
 
 First run of Auto Find Slot offers to edit your weekly course schedule (`.cache/.timetable`, gitignored) - name, day of week, start/end time - used to avoid scheduling TA work over your classes.
 
+## Agent Skill
+
+Let your AI agent (Claude Code, Codex, OpenCode, ...) drive `tacpe` for you:
+
+```bash
+npx skills add sriv95/TACPE-cli
+```
+
 ## Development
 
 See more [src/README.md](src/README.md)
