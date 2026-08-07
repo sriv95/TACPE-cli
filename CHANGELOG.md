@@ -1,5 +1,24 @@
 # Changelog
 
+## [v1.1.1] - 2026-08-07
+
+### Added
+- `timetable` command with `add`, `edit`, and `delete` actions, plus JSON output option.
+- `auto` command for finding and adding free work slots, with single and bulk options.
+- `edit` and `delete` commands for work entries, with validation.
+- Overlap checking command for work entries across courses.
+- JSON output option for `list` (courses and work entries).
+- Error handling for Playwright installation during login.
+- `SKILL.md` documenting tacpe CLI commands and usage for AI agent integration.
+
+### Changed
+- Enhanced work entry validation with overlap checks and new options.
+- Updated README prerequisites, installation instructions, and Agent Skill section.
+- Refactored docstrings for clarity and consistency across modules.
+
+### Removed
+- Redundant command for running from a clone in README.
+
 ## [v1.1.0] - 2026-08-06
 
 ### Added
@@ -32,5 +51,6 @@
 ## [1.0.0] - 2026-08-05
 First Release
 
+[v1.1.1]: https://github.com/sriv95/TACPE-cli/compare/v1.1.0...v1.1.1
 [v1.1.0]: https://github.com/sriv95/TACPE-cli/compare/v1.0.1...v1.1.0
 [v1.0.1]: https://github.com/sriv95/TACPE-cli/compare/v1.0.0...v1.0.1
