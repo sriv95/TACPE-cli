@@ -1,5 +1,13 @@
 # Changelog
 
+## [v1.1.2] - 2026-08-12
+
+### Added
+- Installation scripts for Windows PowerShell and Bash (`scripts/install.ps1`, `scripts/install.sh`).
+
+### Changed
+- Fix Chromium install script for browser login
+
 ## [v1.1.1] - 2026-08-07
 
 ### Added
