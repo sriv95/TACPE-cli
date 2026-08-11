@@ -604,6 +604,7 @@ def add_works(course_id: int) -> None:
             message,
             choices=[
                 questionary.Choice("Submit", value="submit"),
+                questionary.Choice("Edit", value="edit"),
                 questionary.Choice("Add more dates", value="add_more"),
                 questionary.Choice("Cancel", value="cancel"),
             ],
@@ -614,6 +615,9 @@ def add_works(course_id: int) -> None:
             return
         if action == "submit":
             break
+        if action == "edit":
+            task_time = _prompt_task_time("Add a Work", selected_date, defaults=task_time)
+            continue
         dates = list(set(dates) | set(_prompt_more_dates(selected_date, today)))
 
     def _announce(date_str):
