@@ -170,8 +170,7 @@ def login_prompt(method: str | None = None) -> str:
         except PlaywrightError as e:
             if "closed" not in str(e).lower():
                 raise
-            console.print("[yellow]Browser closed before login finished — try again.[/yellow]")
-            continue
+            raise SystemExit("Browser closed before login finished.") from None
         if not test_cookie(cookie):
             raise RuntimeError("Login failed the auth check after login.")
         save_cookie(cookie)
