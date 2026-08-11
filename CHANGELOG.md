@@ -1,5 +1,18 @@
 # Changelog
 
+## [v1.1.3] - 2026-08-12
+
+### Added
+- `Edit` option in `add_works` menu, letting you revise task time before submitting.
+- Future-date warning when adding work entries.
+
+### Changed
+- Browser login prefers system Chrome/Edge over bundled Chromium, falling back if unavailable.
+- Simplified date prompting in work entry: format-checked only, no min/max range restriction.
+
+### Fixed
+- Browser-closed-during-login now exits with a clear error instead of retrying.
+
 ## [v1.1.2] - 2026-08-12
 
 ### Added
