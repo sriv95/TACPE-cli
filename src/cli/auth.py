@@ -71,8 +71,17 @@ def login_browser() -> str:
             "playwright not installed. Run: uv tool install --force tacpe"
         ) from None
 
+    def _open_browser(p):
+        # prefer system Chrome/Edge over playwright's bundled chromium
+        for channel in ("chrome", "msedge", None):
+            try:
+                return p.chromium.launch(headless=False, channel=channel)
+            except PlaywrightError as e:
+                if channel is None or "Executable doesn't exist" in str(e):
+                    raise
+
     def _run(p) -> str:
-        browser = p.chromium.launch(headless=False)
+        browser = _open_browser(p)
         context = browser.new_context()
         page = context.new_page()
         page.goto(BASE_URL)
