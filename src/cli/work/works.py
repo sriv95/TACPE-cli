@@ -409,24 +409,15 @@ def _validate_time_end(text: str, start: str) -> bool | str:
     return True
 
 
-def _prompt_date(label: str, default: str, min_date: str | None = None, max_date: str | None = None) -> str:
-    """Prompt for a date, optionally bounded to [min_date, max_date].
-    Input: label (str) - prompt prefix, default (str) - prefill YYYY-MM-DD,
-        min_date/max_date (str | None) - inclusive bound, or None to skip the range check.
+def _prompt_date(label: str, default: str) -> str:
+    """Prompt for a date (format-checked only; any past date allowed, future allowed with warning).
+    Input: label (str) - prompt prefix, default (str) - prefill YYYY-MM-DD.
     Output: (str) YYYY-MM-DD.
     """
-    def _validate(text: str) -> bool | str:
-        valid = validate_date(text)
-        if valid is not True:
-            return valid
-        if min_date and max_date and not (min_date <= text <= max_date):
-            return f"Format: YYYY-MM-DD (between {min_date} and {max_date})"
-        return True
-
     return ask(questionary.text(
         f"{label} - Enter Date (YYYY-MM-DD):",
         default=default,
-        validate=_validate,
+        validate=validate_date,
         erase_when_done=True,
     ))
 
@@ -542,6 +533,8 @@ def summarize_entry(entry: dict) -> str:
         summary += f"  Warning: {entry['hours']:g} hrs exceeds max 4 hours.\n"
     if overlaps_lunch(entry["time_start"], entry["time_end"]):
         summary += "  Warning: overlaps lunch break (12:00-13:00).\n"
+    if entry["date"] > datetime.now(BANGKOK).strftime("%Y-%m-%d"):
+        summary += "  Warning: date is in the future.\n"
     return summary
 
 
@@ -562,6 +555,8 @@ def summarize_entries(dates: list[str], task_time: dict) -> str:
         summary += f"  Warning: {task_time['hours']:g} hrs exceeds max 4 hours.\n"
     if overlaps_lunch(task_time["time_start"], task_time["time_end"]):
         summary += "  Warning: overlaps lunch break (12:00-13:00).\n"
+    if any(d > datetime.now(BANGKOK).strftime("%Y-%m-%d") for d in dates):
+        summary += "  Warning: includes future date(s).\n"
     return summary
 
 
@@ -597,8 +592,7 @@ def add_works(course_id: int) -> None:
     Input: course_id (int).
     """
     today = datetime.now(BANGKOK).strftime("%Y-%m-%d")
-    step_min, step_max = _month_range(today)
-    selected_date = _prompt_date("Add a Work", today, step_min, step_max)
+    selected_date = _prompt_date("Add a Work", today)
     dates = [selected_date]
 
     task_time = _prompt_task_time("Add a Work", selected_date)
