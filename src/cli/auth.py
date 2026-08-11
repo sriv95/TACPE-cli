@@ -71,37 +71,46 @@ def login_browser() -> str:
             "playwright not installed. Run: uv tool install --force tacpe"
         ) from None
 
-    with console.status("Opening browser") as status:
-        with sync_playwright() as p:
-            try:
-                browser = p.chromium.launch(headless=False)
-            except PlaywrightError as e:
-                if "Executable doesn't exist" not in str(e):
-                    raise
-                if not ask(questionary.confirm(
-                    "Chromium not installed. Install it now?", default=True,
-                )):
-                    raise SystemExit("Run: uvx playwright install chromium") from None
-                subprocess.run(
-                    [sys.executable, "-m", "playwright", "install", "chromium"],
-                    check=True,
-                )
-                browser = p.chromium.launch(headless=False)
-            context = browser.new_context()
-            page = context.new_page()
-            page.goto(BASE_URL)
-            login_link = page.locator("a[href*='login.microsoftonline.com']")
-            if login_link.count() > 0:
-                page.goto(login_link.first.get_attribute("href"))
-            # only the post-login OAuth callback confirms login finished — the home page
-            # URL itself would otherwise match a broader "back on this site" pattern instantly
-            page.wait_for_url(f"{BASE_URL}/cmuEntraIDCallback**", timeout=0)
-            # give the callback route a moment to finish setting cookies
-            page.wait_for_load_state("networkidle")
+    def _run(p) -> str:
+        browser = p.chromium.launch(headless=False)
+        context = browser.new_context()
+        page = context.new_page()
+        page.goto(BASE_URL)
+        login_link = page.locator("a[href*='login.microsoftonline.com']")
+        if login_link.count() > 0:
+            page.goto(login_link.first.get_attribute("href"))
+        # only the post-login OAuth callback confirms login finished — the home page
+        # URL itself would otherwise match a broader "back on this site" pattern instantly
+        page.wait_for_url(f"{BASE_URL}/cmuEntraIDCallback**", timeout=0)
+        # give the callback route a moment to finish setting cookies
+        page.wait_for_load_state("networkidle")
 
-            cookies = context.cookies(BASE_URL)
-            cookie_header = "; ".join(f"{c['name']}={c['value']}" for c in cookies)
-            browser.close()
+        cookies = context.cookies(BASE_URL)
+        cookie_header = "; ".join(f"{c['name']}={c['value']}" for c in cookies)
+        browser.close()
+        return cookie_header
+
+    try:
+        with console.status("Opening browser"):
+            with sync_playwright() as p:
+                cookie_header = _run(p)
+    except PlaywrightError as e:
+        if "Executable doesn't exist" not in str(e):
+            raise
+        # prompt/install run outside console.status — its Live spinner takes over
+        # the terminal, so a Rich prompt or the installer's own progress bar
+        # rendered underneath it looks frozen (or can't be answered at all)
+        if not ask(questionary.confirm(
+            "Chromium not installed. Install it now?", default=True,
+        )):
+            raise SystemExit("Run: uvx playwright install chromium") from None
+        subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"],
+            check=True,
+        )
+        with console.status("Opening browser"):
+            with sync_playwright() as p:
+                cookie_header = _run(p)
 
     if not cookie_header:
         raise RuntimeError("No cookies captured — login may not have completed.")
