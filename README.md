@@ -5,7 +5,7 @@ CLI that adds TA work entries into the CPE TA site, single or in bulk from a CSV
 ## Prerequisite
 
 - Python >=3.14
-- [uv](https://docs.astral.sh/uv/) (provides `uvx`)
+- [uv](https://docs.astral.sh/uv/)
 
 ## Installation
 
@@ -21,7 +21,7 @@ Windows (PowerShell):
 irm https://raw.githubusercontent.com/sriv95/TACPE-cli/main/scripts/install.ps1 | iex
 ```
 
-### Manual (uv required)
+### Manual (uv required) if Quick install not work
 ```bash
 uv tool install git+https://github.com/sriv95/TACPE-cli
 ```
@@ -37,7 +37,7 @@ tacpe
 ```
 
 1. **Login** - on first run, choose how to authenticate:
-   - **Browser login**: opens a real browser window, log in with your CMU account (incl. MFA), the session cookie is captured automatically.
+   - **Browser login**: opens a browser window, log in with your CMU account
    - **Manual paste**: log into the site yourself, open DevTools → Network tab, copy the `Cookie` header from any request, paste it in.
 
    The cookie is cached in `.cache/.cookie` (gitignored) and reused on future runs until it expires.
@@ -45,16 +45,12 @@ tacpe
 2. **Select course** - pick course/section you're a TA for from academic term/year
 
 3. **Works menu**:
-   - View existing work entries for the course, paginated (all months by
-     default). Use **Change Filter** to show a single month (cursor defaults to
-     the current month) or **Show all**.
+   - View/Edit/Delete existing work entries for the course
    - **Add works**:
-     - **Add a work** - enter a date, then task/start/end time. At the summary,
-       choose Submit, or **Add more dates** to extend the same task/time to more
-       dates before submitting
+     - **Add a work** - enter a date, then task/start/end time.
      - **Add bulk works (.csv)** - import a CSV file
      - **Auto Find Slot** - given a date, work hours, and task, finds start times, then lets you pick one.
-     - **Auto Find Slot (bulk .csv)** - same, from a CSV of multiple entries.
+     - **Auto Find Slot (bulk .csv)** - from a CSV of multiple entries.
 
 ### Bulk CSV format
 
