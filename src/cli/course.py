@@ -103,12 +103,18 @@ def select_course() -> tuple[int, str]:
             f"Select course [{reg_term}/{reg_year}]:", choices=choices, erase_when_done=True
         ))
         if course_id is CHANGE_REG_TIME:
-            reg_year, reg_term = select_reg_time(reg_year, reg_term)
+            try:
+                reg_year, reg_term = select_reg_time(reg_year, reg_term)
+            except UserCancelled:
+                pass  # Ctrl-C in the term picker -> back to course list
             continue
         if course_id is CHECK_OVERLAP:
             from src.cli.work.auto_slot import check_overlap_all_courses
 
-            check_overlap_all_courses(reg_year, reg_term)
+            try:
+                check_overlap_all_courses(reg_year, reg_term)
+            except UserCancelled:
+                pass  # Ctrl-C in the overlap check -> back to course list
             continue
         if course_id is LOGOUT:
             from src.cli.auth import logout

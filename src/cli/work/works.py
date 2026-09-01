@@ -12,6 +12,7 @@ from rich.console import Console
 
 from src.func.const import ADD_WORK_URL, BASE_URL, DELETE_WORK_URL, EDIT_WORK_URL, WORK_REPORT_URL
 from src.helper.batch import run_batch
+from src.helper.exceptions import UserCancelled
 from src.helper.prompt import ask, confirm_or_cancel
 from src.func.request import post_json, request
 
@@ -276,31 +277,38 @@ def view_works(course_id: int, course_label: str) -> None:
         choices.append(questionary.Choice("Back to select courses", value=BACK_TO_COURSES))
         choices.append(questionary.Choice("Exit App", value=EXIT_APP))
 
-        selected = ask(questionary.select(
-            "Works:",
-            choices=choices,
-            default=add_works_choice,
-            instruction=(
-                f"\n  Course: {course_label}\n"
-                f"  {len(filtered)} entries\n"
-            ),
-            erase_when_done=True,
-        ))
-        if selected is FILTER:
-            filter_month = _prompt_filter(works, filter_month)
-        elif selected is SORT:
-            sort_mode = SORT_CYCLE[sort_mode]
-        elif selected is ADD_WORKS:
-            add_works_menu(course_id)
-        elif selected is MORE_OPTIONS:
-            more_options_menu(course_id, works)
-        elif selected is BACK_TO_COURSES:
-            return
-        elif selected is EXIT_APP:
-            sys.exit(0)
-        else:
-            work = next(w for w in works if w["_id"] == selected)
-            work_entry_menu(course_id, work)
+        try:
+            selected = ask(questionary.select(
+                "Works:",
+                choices=choices,
+                default=add_works_choice,
+                instruction=(
+                    f"\n  Course: {course_label}\n"
+                    f"  {len(filtered)} entries\n"
+                ),
+                erase_when_done=True,
+            ))
+        except UserCancelled:
+            return  # Ctrl-C on the works list itself -> back to course selection
+
+        try:
+            if selected is FILTER:
+                filter_month = _prompt_filter(works, filter_month)
+            elif selected is SORT:
+                sort_mode = SORT_CYCLE[sort_mode]
+            elif selected is ADD_WORKS:
+                add_works_menu(course_id)
+            elif selected is MORE_OPTIONS:
+                more_options_menu(course_id, works)
+            elif selected is BACK_TO_COURSES:
+                return
+            elif selected is EXIT_APP:
+                sys.exit(0)
+            else:
+                work = next(w for w in works if w["_id"] == selected)
+                work_entry_menu(course_id, work)
+        except UserCancelled:
+            continue  # Ctrl-C inside a sub-flow -> back to the works list
 
 
 def more_options_menu(course_id: int, works: list[dict]) -> None:
