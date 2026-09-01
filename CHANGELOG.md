@@ -1,5 +1,20 @@
 # Changelog
 
+## [v1.1.6] - 2026-09-01
+
+### Added
+- Work hours accept `HH:mm[:ss]` (e.g. `1:30`) alongside a plain number, in the Auto Find Slot prompt, the `auto` command, and bulk CSV `workHour` rows.
+- `task` accepted as an alias for the `work` column in all bulk CSV imports (add works and auto-slot).
+- Work entries list now shows a weekday suffix on each date and color-codes rows by weekday.
+- **Change Sort** in the works list: newest first / oldest first / none.
+- **Print/Save as PDF** in the More Options menu, opening the work report print page in the browser.
+
+### Changed
+- Works list drops pagination; all filtered entries show at once.
+
+### Fixed
+- Ctrl-C in the term picker, overlap check, or works list returns to the previous menu instead of crashing.
+
 ## [v1.1.5] - 2026-09-01
 
 ### Added
