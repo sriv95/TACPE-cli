@@ -24,10 +24,6 @@ MORE_OPTIONS = object()
 BACK_TO_COURSES = object()
 EXIT_APP = object()
 FILTER = object()
-NEXT_PAGE = object()
-PREV_PAGE = object()
-
-PAGE_SIZE = 15
 
 BANGKOK = ZoneInfo("Asia/Bangkok")
 
@@ -227,32 +223,21 @@ def _prompt_filter(works: list[dict], current_month: str | None) -> str | None:
 
 
 def view_works(course_id: int, course_label: str) -> None:
-    """Main works loop: list entries (filtered by month, paginated), offer Add works / Exit.
+    """Main works loop: list entries (filtered by month), offer Add works / Exit.
     Input: course_id (int), course_label (str) - display label.
     """
     filter_month = None
-    page = 0
     while True:
         works = fetch_works(course_id)
         filtered = works if filter_month is None else _works_in_month(works, filter_month)
-
-        total_pages = max(1, -(-len(filtered) // PAGE_SIZE))
-        page = max(0, min(page, total_pages - 1))
-        page_works = filtered[page * PAGE_SIZE:(page + 1) * PAGE_SIZE]
 
         choices = [
             questionary.Choice(
                 f"{format_date_dow(w['date'])} | {format_time(w['time'])} | {w['work']}", value=w["_id"]
             )
-            for w in page_works
+            for w in filtered
         ]
         choices.append(questionary.Separator())
-        if page > 0:
-            choices.append(questionary.Choice("Previous page", value=PREV_PAGE))
-        if page < total_pages - 1:
-            choices.append(questionary.Choice("Next page", value=NEXT_PAGE))
-        if page > 0 or page < total_pages - 1:
-            choices.append(questionary.Separator())
         filter_label = "all" if filter_month is None else filter_month
         choices.append(questionary.Choice(f"Change Filter [{filter_label}]", value=FILTER))
         choices.append(questionary.Separator())
@@ -268,17 +253,12 @@ def view_works(course_id: int, course_label: str) -> None:
             default=add_works_choice,
             instruction=(
                 f"\n  Course: {course_label}\n"
-                f"  {len(filtered)} entries | page {page + 1}/{total_pages}\n"
+                f"  {len(filtered)} entries\n"
             ),
             erase_when_done=True,
         ))
-        if selected is PREV_PAGE:
-            page -= 1
-        elif selected is NEXT_PAGE:
-            page += 1
-        elif selected is FILTER:
+        if selected is FILTER:
             filter_month = _prompt_filter(works, filter_month)
-            page = 0
         elif selected is ADD_WORKS:
             add_works_menu(course_id)
         elif selected is MORE_OPTIONS:
