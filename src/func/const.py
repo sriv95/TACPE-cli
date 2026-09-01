@@ -1,8 +1,11 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 load_dotenv()
+
+CONFIG_DIR = Path(os.environ.get("TACPE_CONFIG_DIR", Path.home() / ".tacpe"))
 
 BASE_URL = os.environ.get("TACPE_BASE_URL", "https://ta.cpe.eng.cmu.ac.th")
 TEST_URL = f"{BASE_URL}/api/user/getWithSession"

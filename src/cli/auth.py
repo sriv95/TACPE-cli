@@ -4,15 +4,14 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
-from pathlib import Path
 
 import questionary
 from rich.console import Console
 
-from src.func.const import BASE_URL, TEST_URL
+from src.func.const import BASE_URL, TEST_URL, CONFIG_DIR
 from src.helper.prompt import ask
 from src.func.request import set_cookie
-COOKIE_FILE = Path(__file__).resolve().parent.parent / ".cache" / ".cookie"
+COOKIE_FILE = CONFIG_DIR / ".cookie"
 
 console = Console()
 

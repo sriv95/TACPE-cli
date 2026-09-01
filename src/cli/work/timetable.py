@@ -1,17 +1,17 @@
 """Recurring weekly enrolled-course timetable, used by Auto Find Slot to avoid clashes."""
 
 import json
-from pathlib import Path
 
 import questionary
 from rich.console import Console
 
 from src.helper.prompt import ask
 from src.cli.work.works import minutes, parse_time
+from src.func.const import CONFIG_DIR
 
 console = Console()
 
-TIMETABLE_FILE = Path(__file__).resolve().parent.parent / ".cache" / ".timetable"
+TIMETABLE_FILE = CONFIG_DIR / ".timetable"
 
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
