@@ -58,7 +58,9 @@ def _prompt_time_entry(defaults: dict | None = None) -> list[dict] | None:
         "Timetable - Name (course):", default=defaults.get("name", ""), erase_when_done=True
     ))
 
-    checked = {defaults["weekday"]} if "weekday" in defaults else set()
+    checked = set(defaults.get("weekdays", []))
+    if "weekday" in defaults:
+        checked.add(defaults["weekday"])
     weekdays = ask(questionary.checkbox(
         "Timetable - Days of week:",
         choices=[
@@ -97,11 +99,40 @@ def _row_label(entry: dict) -> str:
     return f"{WEEKDAYS[entry['weekday']]} | {entry['start']} - {entry['end']} | {entry['name']}"
 
 
+def _group_entries(entries: list[dict]) -> list[dict]:
+    """Group entries sharing name+start+end into one row spanning multiple weekdays.
+    Input: entries (list[dict]).
+    Output: (list[dict]) groups with name/start/end/weekdays/indices, weekdays+indices sorted by weekday.
+    """
+    groups: list[dict] = []
+    by_key: dict[tuple, dict] = {}
+    for i, e in enumerate(entries):
+        key = (e["name"], e["start"], e["end"])
+        g = by_key.get(key)
+        if g is None:
+            g = {"name": e["name"], "start": e["start"], "end": e["end"], "weekdays": [], "indices": []}
+            by_key[key] = g
+            groups.append(g)
+        g["weekdays"].append(e["weekday"])
+        g["indices"].append(i)
+    for g in groups:
+        order = sorted(range(len(g["weekdays"])), key=lambda k, g=g: g["weekdays"][k])
+        g["weekdays"] = [g["weekdays"][k] for k in order]
+        g["indices"] = [g["indices"][k] for k in order]
+    return groups
+
+
+def _group_label(group: dict) -> str:
+    days = ",".join(WEEKDAYS[w] for w in group["weekdays"])
+    return f"{days} | {group['start']} - {group['end']} | {group['name']}"
+
+
 def edit_timetable_menu() -> None:
     """List timetable entries as choices, with Add Time / Back."""
     while True:
         entries = load_timetable()
-        choices = [questionary.Choice(_row_label(e), value=i) for i, e in enumerate(entries)]
+        groups = _group_entries(entries)
+        choices = [questionary.Choice(_group_label(g), value=gi) for gi, g in enumerate(groups)]
         choices.append(questionary.Separator())
         choices.append(questionary.Choice("Add Time", value=ADD_TIME))
         choices.append(questionary.Choice("Back to Time Table", value=BACK))
@@ -110,13 +141,13 @@ def edit_timetable_menu() -> None:
         if selected is BACK:
             return
         if selected is ADD_TIME:
-            new = _prompt_time_entry()
-            entries.extend(new)
+            entries.extend(_prompt_time_entry())
             save_timetable(entries)
             continue
 
+        group = groups[selected]
         action = ask(questionary.select(
-            _row_label(entries[selected]),
+            _group_label(group),
             choices=[
                 questionary.Choice("Edit", value="edit"),
                 questionary.Choice("Delete", value="delete"),
@@ -127,12 +158,19 @@ def edit_timetable_menu() -> None:
         if action is BACK:
             continue
         if action == "delete":
-            del entries[selected]
+            for i in sorted(group["indices"], reverse=True):
+                del entries[i]
             save_timetable(entries)
             continue
 
-        new = _prompt_time_entry(defaults=entries[selected])
-        entries[selected:selected + 1] = new
+        new = _prompt_time_entry(defaults={
+            "name": group["name"], "start": group["start"],
+            "end": group["end"], "weekdays": group["weekdays"],
+        })
+        at = min(group["indices"])
+        for i in sorted(group["indices"], reverse=True):
+            del entries[i]
+        entries[at:at] = new
         save_timetable(entries)
 
 
@@ -145,7 +183,7 @@ def timetable_gate(proceed_label: str = "Next") -> list[dict]:
         entries = load_timetable()
         if entries:
             instruction = "\n  Enrolled Course Time Table:\n" + "\n".join(
-                f"    {_row_label(e)}" for e in entries
+                f"    {_group_label(g)}" for g in _group_entries(entries)
             ) + "\n"
         else:
             instruction = "\n  No timetable entries yet.\n"
@@ -175,13 +213,20 @@ def _demo() -> None:
     assert entries_for_weekday(entries, 0) == [entries[0]]
     assert entries_for_weekday(entries, 1) == []
 
-    base = [{"name": "C", "weekday": w, "start": "09:00", "end": "10:00"} for w in (0, 2, 4)]
+    base = [{"name": "C", "weekday": w, "start": "09:00", "end": "10:00"} for w in (4, 0, 2)]
     lst = [entries[0], entries[1]]
     lst[0:1] = base
-    assert [e["weekday"] for e in lst] == [0, 2, 4, 2]
+    assert [e["weekday"] for e in lst] == [4, 0, 2, 2]
 
-    del lst[1]
-    assert [e["weekday"] for e in lst] == [0, 4, 2]
+    groups = _group_entries(lst)
+    assert [g["name"] for g in groups] == ["C", "B"]
+    assert groups[0]["weekdays"] == [0, 2, 4]
+    assert groups[0]["indices"] == [1, 2, 0]
+    assert _group_label(groups[0]) == "Mon,Wed,Fri | 09:00 - 10:00 | C"
+
+    for i in sorted(groups[0]["indices"], reverse=True):
+        del lst[i]
+    assert [e["weekday"] for e in lst] == [2]
 
 
 if __name__ == "__main__":
