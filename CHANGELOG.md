@@ -1,5 +1,13 @@
 # Changelog
 
+## [v1.1.7] - 2026-09-01
+
+### Changed
+- Cookie and timetable now stored in `~/.tacpe` (override with `TACPE_CONFIG_DIR`) instead of inside the package.
+
+### Fixed
+- More Options actions (multi-delete) now operate on the filtered/sorted works list you see, not the full unfiltered set.
+
 ## [v1.1.6] - 2026-09-01
 
 ### Added
