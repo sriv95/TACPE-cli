@@ -45,7 +45,9 @@ tacpe
 2. **Select course** - pick course/section you're a TA for from academic term/year
 
 3. **Works menu**:
-   - View existing work entries for the course.
+   - View existing work entries for the course, paginated (all months by
+     default). Use **Change Filter** to show a single month (cursor defaults to
+     the current month) or **Show all**.
    - **Add works**:
      - **Add a work** - enter a date, then task/start/end time. At the summary,
        choose Submit, or **Add more dates** to extend the same task/time to more

@@ -23,6 +23,11 @@ ADD_WORKS = object()
 MORE_OPTIONS = object()
 BACK_TO_COURSES = object()
 EXIT_APP = object()
+FILTER = object()
+NEXT_PAGE = object()
+PREV_PAGE = object()
+
+PAGE_SIZE = 15
 
 BANGKOK = ZoneInfo("Asia/Bangkok")
 
@@ -171,21 +176,79 @@ def format_time(time_str: str) -> str:
     return f"{start} - {end} ({hours:g} hrs)"
 
 
+def _works_in_month(works: list[dict], month: str) -> list[dict]:
+    """Keep works whose Bangkok-local date falls in month.
+    Input: works (list[dict]), month (str) - 'YYYY-MM'.
+    Output: (list[dict]).
+    """
+    return [w for w in works if format_date(w["date"]).startswith(month)]
+
+
+def _months_present(works: list[dict], include: str) -> list[str]:
+    """Distinct 'YYYY-MM' of works plus include, newest first.
+    Input: works (list[dict]), include (str) - a month to always offer.
+    Output: (list[str]).
+    """
+    return sorted({format_date(w["date"])[:7] for w in works} | {include}, reverse=True)
+
+
+def _prompt_filter(works: list[dict], current_month: str | None) -> str | None:
+    """Prompt for the works filter: a specific month or all.
+    Input: works (list[dict]), current_month (str | None) - active month filter, None if showing all.
+    Output: (str | None) chosen 'YYYY-MM', or None for show-all.
+    """
+    now_month = datetime.now(BANGKOK).strftime("%Y-%m")
+    mode = ask(questionary.select(
+        "Filter:",
+        choices=[
+            questionary.Choice("Show by month", value="month"),
+            questionary.Choice("Show all", value="all"),
+        ],
+        default="all" if current_month is None else "month",
+        erase_when_done=True,
+    ))
+    if mode == "all":
+        return None
+
+    months = _months_present(works, now_month)
+    default_month = current_month if current_month in months else now_month
+    return ask(questionary.select(
+        "Month:",
+        choices=[questionary.Choice(m, value=m) for m in months],
+        default=default_month,
+        erase_when_done=True,
+    ))
+
+
 def view_works(course_id: int, course_label: str) -> None:
-    """Main works loop: list entries, offer Add works / Exit.
+    """Main works loop: list entries (filtered by month, paginated), offer Add works / Exit.
     Input: course_id (int), course_label (str) - display label.
     """
+    filter_month = None
+    page = 0
     while True:
         works = fetch_works(course_id)
+        filtered = works if filter_month is None else _works_in_month(works, filter_month)
+
+        total_pages = max(1, -(-len(filtered) // PAGE_SIZE))
+        page = max(0, min(page, total_pages - 1))
+        page_works = filtered[page * PAGE_SIZE:(page + 1) * PAGE_SIZE]
 
         choices = [
             questionary.Choice(
                 f"{format_date(w['date'])} | {format_time(w['time'])} | {w['work']}", value=w["_id"]
             )
-            for w in works
+            for w in page_works
         ]
         choices.append(questionary.Separator())
-        choices.append(questionary.Choice("Add works", value=ADD_WORKS))
+        if page > 0:
+            choices.append(questionary.Choice("Previous page", value=PREV_PAGE))
+        if page < total_pages - 1:
+            choices.append(questionary.Choice("Next page", value=NEXT_PAGE))
+        filter_label = "all" if filter_month is None else filter_month
+        choices.append(questionary.Choice(f"Change Filter [{filter_label}]", value=FILTER))
+        add_works_choice = questionary.Choice("Add works", value=ADD_WORKS)
+        choices.append(add_works_choice)
         choices.append(questionary.Choice("More Options", value=MORE_OPTIONS))
         choices.append(questionary.Choice("Back to select courses", value=BACK_TO_COURSES))
         choices.append(questionary.Choice("Exit App", value=EXIT_APP))
@@ -193,11 +256,21 @@ def view_works(course_id: int, course_label: str) -> None:
         selected = ask(questionary.select(
             "Works:",
             choices=choices,
-            default=choices[-4],
-            instruction=f"\n  Course: {course_label}\n",
+            default=add_works_choice,
+            instruction=(
+                f"\n  Course: {course_label}\n"
+                f"  {len(filtered)} entries | page {page + 1}/{total_pages}\n"
+            ),
             erase_when_done=True,
         ))
-        if selected is ADD_WORKS:
+        if selected is PREV_PAGE:
+            page -= 1
+        elif selected is NEXT_PAGE:
+            page += 1
+        elif selected is FILTER:
+            filter_month = _prompt_filter(works, filter_month)
+            page = 0
+        elif selected is ADD_WORKS:
             add_works_menu(course_id)
         elif selected is MORE_OPTIONS:
             more_options_menu(course_id, works)
@@ -763,6 +836,15 @@ def _demo() -> None:
     assert parse_time("20:00", round_up=True) == "20:00"
     assert parse_time("23:45", round_up=True) is None  # rounds past 23:30
     assert parse_time("2015", round_up=True) == "20:30"
+
+    works = [
+        {"_id": "a", "date": "2026-08-06T01:00:00.000Z"},
+        {"_id": "b", "date": "2026-08-31T20:00:00.000Z"},  # 2026-09-01 Bangkok
+        {"_id": "c", "date": "2026-07-15T01:00:00.000Z"},
+    ]
+    assert [w["_id"] for w in _works_in_month(works, "2026-08")] == ["a"]
+    assert [w["_id"] for w in _works_in_month(works, "2026-09")] == ["b"]
+    assert _months_present(works, "2026-10") == ["2026-10", "2026-09", "2026-08", "2026-07"]
 
 
 if __name__ == "__main__":

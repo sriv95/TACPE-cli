@@ -3,9 +3,11 @@ import unittest
 from src.cli.work.works import (
     _daily_dates,
     _month_range,
+    _months_present,
     _to_utc_date,
     _weekly_dates,
     _work_payload,
+    _works_in_month,
     format_date,
     format_entry_line,
     format_time,
@@ -194,6 +196,35 @@ class WorkPayloadTest(unittest.TestCase):
                 "time": "0900-1700",
             },
         )
+
+
+class WorksInMonthTest(unittest.TestCase):
+    works = [
+        {"_id": "a", "date": "2026-08-06T01:00:00.000Z"},
+        {"_id": "b", "date": "2026-08-31T20:00:00.000Z"},  # 2026-09-01 in Bangkok
+        {"_id": "c", "date": "2026-07-15T01:00:00.000Z"},
+    ]
+
+    def test_filters_by_bangkok_local_month(self):
+        self.assertEqual([w["_id"] for w in _works_in_month(self.works, "2026-08")], ["a"])
+        self.assertEqual([w["_id"] for w in _works_in_month(self.works, "2026-09")], ["b"])
+
+    def test_no_match(self):
+        self.assertEqual(_works_in_month(self.works, "2026-01"), [])
+
+
+class MonthsPresentTest(unittest.TestCase):
+    def test_distinct_newest_first_with_included_month(self):
+        works = [
+            {"date": "2026-08-06T01:00:00.000Z"},
+            {"date": "2026-08-20T01:00:00.000Z"},
+            {"date": "2026-06-01T01:00:00.000Z"},
+        ]
+        self.assertEqual(_months_present(works, "2026-09"), ["2026-09", "2026-08", "2026-06"])
+
+    def test_included_month_already_present(self):
+        works = [{"date": "2026-08-06T01:00:00.000Z"}]
+        self.assertEqual(_months_present(works, "2026-08"), ["2026-08"])
 
 
 if __name__ == "__main__":
