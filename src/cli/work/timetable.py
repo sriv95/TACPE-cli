@@ -48,20 +48,24 @@ def _validate_weekday_time(text: str) -> bool | str:
     return True if parse_time(text, strict=False) else "Format: HH:MM (any minute)"
 
 
-def _prompt_time_entry(defaults: dict | None = None) -> dict | None:
-    """Prompt Name/weekday/startTime/endTime, prefilled from defaults.
+def _prompt_time_entry(defaults: dict | None = None) -> list[dict] | None:
+    """Prompt Name/weekdays/startTime/endTime, prefilled from defaults.
     Input: defaults (dict | None) - prefill name/weekday/start/end.
-    Output: (dict | None) entry, or None if cancelled.
+    Output: (list[dict] | None) one entry per chosen weekday, or None if cancelled.
     """
     defaults = defaults or {}
     name = ask(questionary.text(
         "Timetable - Name (course):", default=defaults.get("name", ""), erase_when_done=True
     ))
 
-    weekday = ask(questionary.select(
-        "Timetable - Day of week:",
-        choices=[questionary.Choice(day, value=i) for i, day in enumerate(WEEKDAYS)],
-        default=defaults.get("weekday"),
+    checked = {defaults["weekday"]} if "weekday" in defaults else set()
+    weekdays = ask(questionary.checkbox(
+        "Timetable - Days of week:",
+        choices=[
+            questionary.Choice(day, value=i, checked=i in checked)
+            for i, day in enumerate(WEEKDAYS)
+        ],
+        validate=lambda picked: bool(picked) or "Pick at least one day",
         erase_when_done=True,
     ))
 
@@ -83,7 +87,10 @@ def _prompt_time_entry(defaults: dict | None = None) -> dict | None:
     ))
     end = parse_time(end, strict=False)
 
-    return {"name": name, "weekday": weekday, "start": start, "end": end}
+    return [
+        {"name": name, "weekday": wd, "start": start, "end": end}
+        for wd in sorted(weekdays)
+    ]
 
 
 def _row_label(entry: dict) -> str:
@@ -103,13 +110,13 @@ def edit_timetable_menu() -> None:
         if selected is BACK:
             return
         if selected is ADD_TIME:
-            entry = _prompt_time_entry()
-            entries.append(entry)
+            new = _prompt_time_entry()
+            entries.extend(new)
             save_timetable(entries)
             continue
 
-        entry = _prompt_time_entry(defaults=entries[selected])
-        entries[selected] = entry
+        new = _prompt_time_entry(defaults=entries[selected])
+        entries[selected:selected + 1] = new
         save_timetable(entries)
 
 
@@ -151,6 +158,11 @@ def _demo() -> None:
     ]
     assert entries_for_weekday(entries, 0) == [entries[0]]
     assert entries_for_weekday(entries, 1) == []
+
+    base = [{"name": "C", "weekday": w, "start": "09:00", "end": "10:00"} for w in (0, 2, 4)]
+    lst = [entries[0], entries[1]]
+    lst[0:1] = base
+    assert [e["weekday"] for e in lst] == [0, 2, 4, 2]
 
 
 if __name__ == "__main__":
