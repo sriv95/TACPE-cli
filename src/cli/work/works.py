@@ -24,6 +24,7 @@ MORE_OPTIONS = object()
 BACK_TO_COURSES = object()
 EXIT_APP = object()
 FILTER = object()
+SORT = object()
 
 BANGKOK = ZoneInfo("Asia/Bangkok")
 
@@ -222,14 +223,20 @@ def _prompt_filter(works: list[dict], current_month: str | None) -> str | None:
     ))
 
 
+SORT_CYCLE = {"newest": "oldest", "oldest": "none", "none": "newest"}
+
+
 def view_works(course_id: int, course_label: str) -> None:
     """Main works loop: list entries (filtered by month), offer Add works / Exit.
     Input: course_id (int), course_label (str) - display label.
     """
     filter_month = None
+    sort_mode = "newest"
     while True:
         works = fetch_works(course_id)
         filtered = works if filter_month is None else _works_in_month(works, filter_month)
+        if sort_mode != "none":
+            filtered = sorted(filtered, key=lambda w: w["date"], reverse=sort_mode == "newest")
 
         choices = [
             questionary.Choice(
@@ -240,6 +247,8 @@ def view_works(course_id: int, course_label: str) -> None:
         choices.append(questionary.Separator())
         filter_label = "all" if filter_month is None else filter_month
         choices.append(questionary.Choice(f"Change Filter [{filter_label}]", value=FILTER))
+        sort_label = {"newest": "Newest first", "oldest": "Oldest first", "none": "None"}[sort_mode]
+        choices.append(questionary.Choice(f"Change Sort [{sort_label}]", value=SORT))
         choices.append(questionary.Separator())
         add_works_choice = questionary.Choice("Add works", value=ADD_WORKS)
         choices.append(add_works_choice)
@@ -259,6 +268,8 @@ def view_works(course_id: int, course_label: str) -> None:
         ))
         if selected is FILTER:
             filter_month = _prompt_filter(works, filter_month)
+        elif selected is SORT:
+            sort_mode = SORT_CYCLE[sort_mode]
         elif selected is ADD_WORKS:
             add_works_menu(course_id)
         elif selected is MORE_OPTIONS:
