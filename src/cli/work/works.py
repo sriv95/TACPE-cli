@@ -26,7 +26,7 @@ EXIT_APP = object()
 
 BANGKOK = ZoneInfo("Asia/Bangkok")
 
-DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+DATE_FORMATS = ("%Y-%m-%d", "%d%b%Y")
 
 
 def fetch_works(course_id: int) -> list[dict]:
@@ -321,12 +321,26 @@ def add_works_menu(course_id: int) -> None:
         auto_find_slot_bulk(course_id)
 
 
+def parse_date(text: str) -> str | None:
+    """Parse flexible date input (YYYY-MM-DD or DDMonYYYY) into normalized YYYY-MM-DD.
+    Input: text (str) - raw input.
+    Output: (str | None) 'YYYY-MM-DD', or None if invalid.
+    """
+    text = text.strip()
+    for fmt in DATE_FORMATS:
+        try:
+            return datetime.strptime(text, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return None
+
+
 def validate_date(text: str) -> bool | str:
     """Check date format for questionary.
     Input: text (str) - raw input.
     Output: (bool | str) True, or an error message.
     """
-    return True if DATE_RE.match(text) else "Format: YYYY-MM-DD"
+    return True if parse_date(text) else "Format: YYYY-MM-DD or DDMonYYYY (e.g. 04Aug2026)"
 
 
 def validate_work(text: str) -> bool | str:
@@ -414,12 +428,13 @@ def _prompt_date(label: str, default: str) -> str:
     Input: label (str) - prompt prefix, default (str) - prefill YYYY-MM-DD.
     Output: (str) YYYY-MM-DD.
     """
-    return ask(questionary.text(
-        f"{label} - Enter Date (YYYY-MM-DD):",
+    date_str = ask(questionary.text(
+        f"{label} - Enter Date (YYYY-MM-DD or DDMonYYYY):",
         default=default,
         validate=validate_date,
         erase_when_done=True,
     ))
+    return parse_date(date_str)
 
 
 def _prompt_task_time(label: str, date_str: str, defaults: dict | None = None) -> dict:
@@ -659,13 +674,13 @@ def clone_work_entry(course_id: int, work: dict) -> None:
     Input: course_id (int), work (dict) - the existing work entry to clone.
     """
     time_start, time_end = split_time(work["time"])
-    date_str = ask(questionary.text(
-        "Clone Work - Enter Date (YYYY-MM-DD):",
+    date_str = parse_date(ask(questionary.text(
+        "Clone Work - Enter Date (YYYY-MM-DD or DDMonYYYY):",
         default=datetime.now(BANGKOK).strftime("%Y-%m-%d"),
         instruction=f"\n  Task: {work['work']}\n  Time: {time_start} - {time_end}\n",
         validate=validate_date,
         erase_when_done=True,
-    ))
+    )))
 
     hours = (minutes(time_end) - minutes(time_start)) / 60
     entry = {"date": date_str, "work": work["work"], "time_start": time_start, "time_end": time_end, "hours": hours}

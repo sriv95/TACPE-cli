@@ -15,6 +15,7 @@ from src.cli.work.works import (
     format_date,
     format_entry_line,
     minutes,
+    parse_date,
     parse_time,
     split_time,
     submit_work,
@@ -259,12 +260,12 @@ def auto_find_slot(course_id: int) -> None:
     """
     timetable = timetable_gate()
 
-    date_str = ask(questionary.text(
-        "Auto Find Slot - Enter Date (YYYY-MM-DD):",
+    date_str = parse_date(ask(questionary.text(
+        "Auto Find Slot - Enter Date (YYYY-MM-DD or DDMonYYYY):",
         default=datetime.now().strftime("%Y-%m-%d"),
         validate=validate_date,
         erase_when_done=True,
-    ))
+    )))
 
     duration_text = ask(questionary.text(
         "Auto Find Slot - Work Hours (e.g. 2 or 2.5):",
@@ -361,7 +362,12 @@ def _validate_bulk_row(row: dict, line: int) -> dict | None:
         console.print(f"[red]Row {line}: {'; '.join(errors)}[/red]")
         return None
 
-    return {"date": row["date"], "duration": float(row["workHour"]), "work": row["work"], "min_start": min_start}
+    return {
+        "date": parse_date(row["date"]),
+        "duration": float(row["workHour"]),
+        "work": row["work"],
+        "min_start": min_start,
+    }
 
 
 def auto_find_slot_bulk(course_id: int) -> None:

@@ -9,7 +9,16 @@ from src.helper.batch import run_batch
 from src.helper.exceptions import UserCancelled
 from src.helper.file import browse_file
 from src.helper.prompt import ask, confirm_or_cancel
-from src.cli.work.works import format_entry_line, minutes, overlaps_lunch, parse_time, submit_work, validate_date, validate_work
+from src.cli.work.works import (
+    format_entry_line,
+    minutes,
+    overlaps_lunch,
+    parse_date,
+    parse_time,
+    submit_work,
+    validate_date,
+    validate_work,
+)
 
 console = Console()
 
@@ -104,7 +113,7 @@ def _validate_row(row: dict, line: int) -> dict | None:
         return None
 
     hours = (minutes(end) - minutes(start)) / 60
-    return {"date": row["date"], "work": row["work"], "time_start": start, "time_end": end, "hours": hours}
+    return {"date": parse_date(row["date"]), "work": row["work"], "time_start": start, "time_end": end, "hours": hours}
 
 
 def add_bulk_works(course_id: int) -> None:
