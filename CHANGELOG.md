@@ -1,5 +1,14 @@
 # Changelog
 
+## [v1.1.5] - 2026-09-01
+
+### Added
+- Timetable entry prompt now takes multiple days of week at once, creating one entry per day.
+- Edit / Delete / Back submenu after selecting a timetable entry in the interactive Edit Time Table menu.
+
+### Changed
+- Interactive timetable list groups entries that share the same course name and start/end time into a single multi-day row (e.g. `Mon,Wed,Fri | 09:00 - 10:00 | Math`); editing or deleting a group applies to every day in it.
+
 ## [v1.1.4] - 2026-09-01
 
 ### Added
@@ -83,6 +92,7 @@
 ## [1.0.0] - 2026-08-05
 First Release
 
+[v1.1.5]: https://github.com/sriv95/TACPE-cli/compare/v1.1.4...v1.1.5
 [v1.1.4]: https://github.com/sriv95/TACPE-cli/compare/v1.1.3...v1.1.4
 [v1.1.1]: https://github.com/sriv95/TACPE-cli/compare/v1.1.0...v1.1.1
 [v1.1.0]: https://github.com/sriv95/TACPE-cli/compare/v1.0.1...v1.1.0
