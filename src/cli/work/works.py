@@ -292,6 +292,7 @@ def more_options_menu(course_id: int, works: list[dict]) -> None:
         choices=[
             questionary.Choice("Delete multiple", value="delete_multiple"),
             questionary.Choice("Open in Browser", value="open_browser"),
+            questionary.Choice("Print/Save as PDF (open in Browser)", value="print_pdf"),
             questionary.Choice("Back to Works", value="back"),
         ],
         erase_when_done=True,
@@ -300,6 +301,8 @@ def more_options_menu(course_id: int, works: list[dict]) -> None:
         delete_multiple_works(course_id, works)
     elif choice == "open_browser":
         open_in_browser(course_id)
+    elif choice == "print_pdf":
+        webbrowser.open(f"{BASE_URL}/student/workReport/print/{course_id}")
 
 
 def open_in_browser(course_id: int) -> None:
