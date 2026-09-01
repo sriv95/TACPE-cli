@@ -299,7 +299,7 @@ def view_works(course_id: int, course_label: str) -> None:
             elif selected is ADD_WORKS:
                 add_works_menu(course_id)
             elif selected is MORE_OPTIONS:
-                more_options_menu(course_id, works)
+                more_options_menu(course_id, filtered)
             elif selected is BACK_TO_COURSES:
                 return
             elif selected is EXIT_APP:
@@ -313,7 +313,7 @@ def view_works(course_id: int, course_label: str) -> None:
 
 def more_options_menu(course_id: int, works: list[dict]) -> None:
     """Prompt user for extra actions: multi-delete or back.
-    Input: course_id (int), works (list[dict]) - current work entries.
+    Input: course_id (int), works (list[dict]) - work entries as filtered/sorted in the works list.
     """
     choice = ask(questionary.select(
         "More Options:",
@@ -342,7 +342,7 @@ def open_in_browser(course_id: int) -> None:
 
 def delete_multiple_works(course_id: int, works: list[dict]) -> None:
     """Checkbox-select entries and delete each, reporting per-item failures.
-    Input: course_id (int), works (list[dict]) - current work entries.
+    Input: course_id (int), works (list[dict]) - work entries as filtered/sorted in the works list.
     """
     if not works:
         console.print("[yellow]No works to delete.[/yellow]")
