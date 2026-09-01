@@ -1,5 +1,16 @@
 # Changelog
 
+## [v1.1.4] - 2026-09-01
+
+### Added
+- Month filter and pagination (15 entries/page) in the work entries view.
+- Flexible date input (`DDMonYYYY`, e.g. `04Aug2026`) accepted alongside `YYYY-MM-DD` across work entry, clone, auto-slot, and bulk CSV rows.
+- Round-up time parsing: minutes not on 00/30 round up to the next 00/30 (e.g. `19:45` → `20:00`), used for auto-slot earliest-start times.
+
+### Changed
+- Auto-slot "minimum start time" renamed to "earliest start time"; when given, it now picks the first free slot at/after that time instead of the 08:00/13:00/latest default.
+- Bulk auto-slot CSV `startTime` description clarified (earliest start, round-up behavior).
+
 ## [v1.1.3] - 2026-08-12
 
 ### Added
@@ -72,6 +83,7 @@
 ## [1.0.0] - 2026-08-05
 First Release
 
+[v1.1.4]: https://github.com/sriv95/TACPE-cli/compare/v1.1.3...v1.1.4
 [v1.1.1]: https://github.com/sriv95/TACPE-cli/compare/v1.1.0...v1.1.1
 [v1.1.0]: https://github.com/sriv95/TACPE-cli/compare/v1.0.1...v1.1.0
 [v1.0.1]: https://github.com/sriv95/TACPE-cli/compare/v1.0.0...v1.0.1
