@@ -115,6 +115,22 @@ def edit_timetable_menu() -> None:
             save_timetable(entries)
             continue
 
+        action = ask(questionary.select(
+            _row_label(entries[selected]),
+            choices=[
+                questionary.Choice("Edit", value="edit"),
+                questionary.Choice("Delete", value="delete"),
+                questionary.Choice("Back", value=BACK),
+            ],
+            erase_when_done=True,
+        ))
+        if action is BACK:
+            continue
+        if action == "delete":
+            del entries[selected]
+            save_timetable(entries)
+            continue
+
         new = _prompt_time_entry(defaults=entries[selected])
         entries[selected:selected + 1] = new
         save_timetable(entries)
@@ -163,6 +179,9 @@ def _demo() -> None:
     lst = [entries[0], entries[1]]
     lst[0:1] = base
     assert [e["weekday"] for e in lst] == [0, 2, 4, 2]
+
+    del lst[1]
+    assert [e["weekday"] for e in lst] == [0, 4, 2]
 
 
 if __name__ == "__main__":
