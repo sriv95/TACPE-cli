@@ -30,6 +30,16 @@ BANGKOK = ZoneInfo("Asia/Bangkok")
 
 DATE_FORMATS = ("%Y-%m-%d", "%d%b%Y")
 
+WEEKDAY_COLORS = {
+    0: "#ffd000",  # Mon - yellow
+    1: "#ff87d7",  # Tue - pink
+    2: "#6bff6b",  # Wed - green
+    3: "#ff9f31",  # Thu - orange
+    4: "#00d7d7",  # Fri - cyan
+    5: "#8a00e0",  # Sat - magenta
+    6: "#ff5f5f",  # Sun - red
+}
+
 
 def fetch_works(course_id: int) -> list[dict]:
     """Fetch existing work entries for a course.
@@ -160,6 +170,12 @@ def format_date_dow(date_str: str) -> str:
     return f"{dt.strftime('%Y-%m-%d')} ({dt.strftime('%a')[:2]})"
 
 
+def weekday_color(date_str: str) -> str:
+    """Return the per-weekday hex color for an API UTC date (Bangkok-local weekday)."""
+    dt = datetime.fromisoformat(date_str.replace("Z", "+00:00")).astimezone(BANGKOK)
+    return WEEKDAY_COLORS[dt.weekday()]
+
+
 def split_time(time_str: str) -> tuple[str, str]:
     """Split an API time range into normalized HH:MM start/end.
     Input: time_str (str) - HHMM-HHMM.
@@ -240,7 +256,11 @@ def view_works(course_id: int, course_label: str) -> None:
 
         choices = [
             questionary.Choice(
-                f"{format_date_dow(w['date'])} | {format_time(w['time'])} | {w['work']}", value=w["_id"]
+                title=[
+                    (f"fg:{weekday_color(w['date'])}", format_date_dow(w["date"])),
+                    ("", f" | {format_time(w['time'])} | {w['work']}"),
+                ],
+                value=w["_id"],
             )
             for w in filtered
         ]
