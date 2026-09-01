@@ -245,8 +245,11 @@ def view_works(course_id: int, course_label: str) -> None:
             choices.append(questionary.Choice("Previous page", value=PREV_PAGE))
         if page < total_pages - 1:
             choices.append(questionary.Choice("Next page", value=NEXT_PAGE))
+        if page > 0 or page < total_pages - 1:
+            choices.append(questionary.Separator())
         filter_label = "all" if filter_month is None else filter_month
         choices.append(questionary.Choice(f"Change Filter [{filter_label}]", value=FILTER))
+        choices.append(questionary.Separator())
         add_works_choice = questionary.Choice("Add works", value=ADD_WORKS)
         choices.append(add_works_choice)
         choices.append(questionary.Choice("More Options", value=MORE_OPTIONS))
