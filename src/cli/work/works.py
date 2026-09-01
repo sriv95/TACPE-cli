@@ -157,6 +157,12 @@ def format_date(date_str: str) -> str:
     return dt.strftime("%Y-%m-%d")
 
 
+def format_date_dow(date_str: str) -> str:
+    """Like format_date but with a 2-letter weekday suffix, e.g. '2026-09-01 (Mo)'."""
+    dt = datetime.fromisoformat(date_str.replace("Z", "+00:00")).astimezone(BANGKOK)
+    return f"{dt.strftime('%Y-%m-%d')} ({dt.strftime('%a')[:2]})"
+
+
 def split_time(time_str: str) -> tuple[str, str]:
     """Split an API time range into normalized HH:MM start/end.
     Input: time_str (str) - HHMM-HHMM.
@@ -236,7 +242,7 @@ def view_works(course_id: int, course_label: str) -> None:
 
         choices = [
             questionary.Choice(
-                f"{format_date(w['date'])} | {format_time(w['time'])} | {w['work']}", value=w["_id"]
+                f"{format_date_dow(w['date'])} | {format_time(w['time'])} | {w['work']}", value=w["_id"]
             )
             for w in page_works
         ]
