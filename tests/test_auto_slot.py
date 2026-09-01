@@ -5,6 +5,7 @@ from src.cli.work.auto_slot import (
     _validate_duration,
     default_pick,
     find_free_slots,
+    parse_work_hours,
     slots_with_overlap,
 )
 
@@ -80,6 +81,30 @@ class ValidateDurationTest(unittest.TestCase):
 
     def test_exactly_minimum_accepted(self):
         self.assertTrue(_validate_duration("1"))
+
+    def test_hh_mm_ss_accepted(self):
+        self.assertTrue(_validate_duration("1:00:00"))
+
+    def test_hh_mm_accepted(self):
+        self.assertTrue(_validate_duration("1:30"))
+
+    def test_hh_mm_odd_minutes_rejected(self):
+        self.assertNotEqual(_validate_duration("1:15"), True)
+
+
+class ParseWorkHoursTest(unittest.TestCase):
+    def test_plain_number(self):
+        self.assertEqual(parse_work_hours("2.5"), 2.5)
+
+    def test_hh_mm(self):
+        self.assertEqual(parse_work_hours("1:00"), 1.0)
+
+    def test_hh_mm_ss(self):
+        self.assertEqual(parse_work_hours("1:30:00"), 1.5)
+
+    def test_bad_input_returns_none(self):
+        self.assertIsNone(parse_work_hours("abc"))
+        self.assertIsNone(parse_work_hours("1:2:3:4"))
 
 
 class FilterByMinStartTest(unittest.TestCase):

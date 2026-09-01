@@ -18,6 +18,7 @@ from src.cli.work.auto_slot import (
     fetch_all_course_works,
     find_free_slots,
     find_overlap_conflicts,
+    parse_work_hours,
     print_overlap_conflicts,
     slots_with_overlap,
 )
@@ -168,7 +169,7 @@ def build_parser() -> argparse.ArgumentParser:
     auto_parser.add_argument("--date", dest="date", default=None, help="Work date, YYYY-MM-DD (required unless --bulk)")
     auto_parser.add_argument(
         "--workHour", "--wh", dest="work_hour", default=None,
-        help="Duration in hours, multiple of 0.5, e.g. 2 or 2.5 (required unless --bulk)",
+        help="Duration in hours (2, 2.5) or HH:mm[:ss] (1:30, 1:30:00), multiple of 0.5 (required unless --bulk)",
     )
     auto_parser.add_argument(
         "--work", "--task", dest="work", default=None, help="Task description (required unless --bulk)"
@@ -703,7 +704,7 @@ def _auto_command(
         if min_start is None:
             raise SystemExit("--startTime: invalid format")
 
-    _auto_single(course_id, date, float(work_hour), work, min_start, reg_year, reg_term, no_check)
+    _auto_single(course_id, date, parse_work_hours(work_hour), work, min_start, reg_year, reg_term, no_check)
 
 
 def run(argv: list[str] | None = None) -> bool:

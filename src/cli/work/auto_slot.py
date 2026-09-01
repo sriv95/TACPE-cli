@@ -33,7 +33,7 @@ LUNCH = (minutes("12:00"), minutes("13:00"))
 AUTO_SLOT_CSV_INSTRUCTION = (
     "\n  Required columns: date, workHour, work (optional: startTime; other columns are ignored)"
     "\n  date: YYYY-MM-DD"
-    "\n  workHour: hours as a number, multiple of 0.5 (e.g. 2, 2.5)"
+    "\n  workHour: hours as a number (e.g. 2, 2.5) or HH:mm[:ss] (e.g. 1:30, 1:30:00), multiple of 0.5"
     "\n  startTime (optional): earliest start time, HH:MM/HHMM/H/H.mm - odd minutes round up to next 00/30 - slot placed at next free time at/after it - blank to skip"
     "\n  Example:"
     "\n    date,workHour,work,startTime"
@@ -229,15 +229,33 @@ def default_pick(candidates: list[str], prefer_earliest: bool = False) -> str | 
     return candidates[-1] if candidates else None
 
 
-def _validate_duration(text: str) -> bool | str:
-    """Check work-hour input is a number >=1, multiple of 0.5, for questionary.
+def parse_work_hours(text: str) -> float | None:
+    """Parse work-hours input: a number (2, 2.5) or HH:mm[:ss] (1:30, 1:30:00).
     Input: text (str) - raw input.
+    Output: (float | None) hours, or None if unparseable.
+    """
+    text = text.strip()
+    if ":" in text:
+        parts = text.split(":")
+        if len(parts) not in (2, 3) or not all(p.isdigit() for p in parts):
+            return None
+        h, m = int(parts[0]), int(parts[1])
+        s = int(parts[2]) if len(parts) == 3 else 0
+        return h + m / 60 + s / 3600
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def _validate_duration(text: str) -> bool | str:
+    """Check work-hour input is >=1 hour, multiple of 0.5, for questionary.
+    Input: text (str) - raw input (number or HH:mm[:ss]).
     Output: (bool | str) True, or an error message.
     """
-    try:
-        value = float(text)
-    except ValueError:
-        return "Enter a number of hours (e.g. 2 or 2.5)"
+    value = parse_work_hours(text)
+    if value is None:
+        return "Enter hours (e.g. 2, 2.5) or HH:mm[:ss] (e.g. 1:30)"
     if value < 1:
         return "Must be at least 1 hour"
     if round(value * 2) != value * 2:
@@ -274,12 +292,12 @@ def auto_find_slot(course_id: int) -> None:
     )))
 
     duration_text = ask(questionary.text(
-        "Auto Find Slot - Work Hours (e.g. 2 or 2.5):",
+        "Auto Find Slot - Work Hours (e.g. 2, 2.5 or 1:30):",
         instruction=f"\n  Date: {date_str}\n",
         validate=_validate_duration,
         erase_when_done=True,
     ))
-    duration = float(duration_text)
+    duration = parse_work_hours(duration_text)
 
     work = ask(questionary.text(
         "Auto Find Slot - Enter Task:",
@@ -370,7 +388,7 @@ def _validate_bulk_row(row: dict, line: int) -> dict | None:
 
     return {
         "date": parse_date(row["date"]),
-        "duration": float(row["workHour"]),
+        "duration": parse_work_hours(row["workHour"]),
         "work": row["work"],
         "min_start": min_start,
     }
