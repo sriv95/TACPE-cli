@@ -31,6 +31,17 @@ class ReadCsvRowsTest(unittest.TestCase):
         path = self._write("date,startTime,endTime,work\n")
         self.assertEqual(read_csv_rows(path, REQUIRED_COLUMNS), [])
 
+    def test_task_column_aliases_work(self):
+        path = self._write("date,startTime,endTime,task\n2026-08-06,09:00,17:00,Grading\n")
+        rows = read_csv_rows(path, REQUIRED_COLUMNS)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["work"], "Grading")
+
+    def test_work_column_wins_over_task(self):
+        path = self._write("date,startTime,endTime,work,task\n2026-08-06,09:00,17:00,Real,Alias\n")
+        rows = read_csv_rows(path, REQUIRED_COLUMNS)
+        self.assertEqual(rows[0]["work"], "Real")
+
     def test_missing_file_raises(self):
         with self.assertRaises(FileNotFoundError):
             read_csv_rows("/no/such/file.csv", REQUIRED_COLUMNS)

@@ -31,7 +31,7 @@ DAY_END = minutes("23:30")
 LUNCH = (minutes("12:00"), minutes("13:00"))
 
 AUTO_SLOT_CSV_INSTRUCTION = (
-    "\n  Required columns: date, workHour, work (optional: startTime; other columns are ignored)"
+    "\n  Required columns: date, workHour, work (or task; optional: startTime; other columns are ignored)"
     "\n  date: YYYY-MM-DD"
     "\n  workHour: hours as a number (e.g. 2, 2.5) or HH:mm[:ss] (e.g. 1:30, 1:30:00), multiple of 0.5"
     "\n  startTime (optional): earliest start time, HH:MM/HHMM/H/H.mm - odd minutes round up to next 00/30 - slot placed at next free time at/after it - blank to skip"

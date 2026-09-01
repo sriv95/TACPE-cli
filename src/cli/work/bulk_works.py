@@ -25,7 +25,7 @@ console = Console()
 REQUIRED_COLUMNS = ("date", "startTime", "endTime", "work")
 
 CSV_INSTRUCTION = (
-    "\n  Required columns: date, startTime, endTime, work (other columns are ignored)"
+    "\n  Required columns: date, startTime, endTime, work (or task; other columns are ignored)"
     "\n  date: YYYY-MM-DD"
     "\n  startTime/endTime: HH:MM, HHMM, H, or H.mm (minutes must be 00 or 30)"
     "\n  Example:"
@@ -74,11 +74,20 @@ def read_csv_rows(path: str, required_columns: tuple[str, ...]) -> list[dict] | 
     """
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
-        missing = [c for c in required_columns if c not in (reader.fieldnames or [])]
+        fields = reader.fieldnames or []
+        has_task_alias = "work" not in fields and "task" in fields
+        missing = [
+            c for c in required_columns
+            if c not in fields and not (c == "work" and has_task_alias)
+        ]
         if missing:
             console.print(f"[red]CSV missing columns: {', '.join(missing)}[/red]")
             return None
-        return list(reader)
+        rows = list(reader)
+        if has_task_alias:
+            for row in rows:
+                row.setdefault("work", row.get("task"))
+        return rows
 
 
 def _validate_row(row: dict, line: int) -> dict | None:

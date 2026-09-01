@@ -61,7 +61,7 @@ Required columns (extra columns are ignored):
 | `date`      | `YYYY-MM-DD` or `DDMonYYYY` (e.g. `04Aug2026`)        |
 | `startTime` | `HH:MM`, `HHMM`, `H`, or `H.mm` (minutes must be `00` or `30`) |
 | `endTime`   | same as `startTime`, at least 1 hour after `startTime` |
-| `work`      | task description                                      |
+| `work` or `task` | task description                                 |
 
 Example:
 
@@ -78,7 +78,7 @@ Required columns (extra columns are ignored):
 |-------------|------------------------------------------------------|
 | `date`      | `YYYY-MM-DD` or `DDMonYYYY` (e.g. `04Aug2026`)        |
 | `workHour`  | hours as a number, multiple of `0.5` (e.g. `2`, `2.5`) |
-| `work`      | task description                                      |
+| `work` or `task` | task description                                 |
 | `startTime` | (optional) earliest start time, `HH:MM`/`HHMM`/`H`/`H.mm` - the slot is placed at the next free time at/after it; blank to skip |
 
 Example:

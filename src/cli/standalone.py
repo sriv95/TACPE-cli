@@ -128,7 +128,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_parser.add_argument(
         "--bulk", dest="bulk", default=None,
-        help="CSV file path with columns date,startTime,endTime,work — instead of --date/--startTime/--endTime/--work",
+        help="CSV file path with columns date,startTime,endTime,work (or task) — instead of --date/--startTime/--endTime/--work",
     )
     add_parser.add_argument(
         "--force", "--no-check", dest="no_check", action="store_true",
@@ -180,7 +180,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     auto_parser.add_argument(
         "--bulk", dest="bulk", default=None,
-        help="CSV file path with columns date,workHour,work,startTime(optional) — instead of --date/--workHour/--work/--startTime",
+        help="CSV file path with columns date,workHour,work (or task),startTime(optional) — instead of --date/--workHour/--work/--startTime",
     )
     auto_parser.add_argument(
         "--force", "--no-check", dest="no_check", action="store_true",
