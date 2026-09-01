@@ -83,7 +83,7 @@ Required columns (extra columns are ignored):
 | `date`      | `YYYY-MM-DD` or `DDMonYYYY` (e.g. `04Aug2026`)        |
 | `workHour`  | hours as a number, multiple of `0.5` (e.g. `2`, `2.5`) |
 | `work`      | task description                                      |
-| `startTime` | (optional) minimum start time, `HH:MM`/`HHMM`/`H`/`H.mm` - blank to skip |
+| `startTime` | (optional) earliest start time, `HH:MM`/`HHMM`/`H`/`H.mm` - the slot is placed at the next free time at/after it; blank to skip |
 
 Example:
 

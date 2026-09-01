@@ -58,6 +58,12 @@ class DefaultPickTest(unittest.TestCase):
     def test_empty_returns_none(self):
         self.assertIsNone(default_pick([]))
 
+    def test_prefer_earliest_takes_first_candidate(self):
+        self.assertEqual(default_pick(["09:00", "09:30", "13:00"], prefer_earliest=True), "09:00")
+
+    def test_prefer_earliest_empty_returns_none(self):
+        self.assertIsNone(default_pick([], prefer_earliest=True))
+
 
 class ValidateDurationTest(unittest.TestCase):
     def test_valid_half_hour_multiple(self):

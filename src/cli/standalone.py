@@ -605,7 +605,7 @@ def _auto_single(
             f"No free {duration:g}-hour slot on {date}. Use --force/--no-check to place one anyway (ignoring conflicts)."
         )
 
-    time_start = default_pick(free_times)
+    time_start = default_pick(free_times, prefer_earliest=bool(min_start))
     time_end = _fmt(minutes(time_start) + round(duration * 60))
     entry = {"date": date, "work": work, "time_start": time_start, "time_end": time_end, "hours": duration}
 
@@ -641,7 +641,7 @@ def _auto_bulk(course_id: int, path: str, reg_year: int, reg_term: int, no_check
             console.print(f"[red]Row {i}: no free {parsed['duration']:g}-hour slot on {parsed['date']}.[/red]")
             continue
 
-        time_start = default_pick(candidates)
+        time_start = default_pick(candidates, prefer_earliest=bool(parsed["min_start"]))
         time_end = _fmt(minutes(time_start) + round(parsed["duration"] * 60))
         extra_busy.setdefault(parsed["date"], []).append(
             (minutes(time_start), minutes(time_end), "another row in this run")

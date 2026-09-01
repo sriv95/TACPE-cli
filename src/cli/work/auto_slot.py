@@ -34,7 +34,7 @@ AUTO_SLOT_CSV_INSTRUCTION = (
     "\n  Required columns: date, workHour, work (optional: startTime; other columns are ignored)"
     "\n  date: YYYY-MM-DD"
     "\n  workHour: hours as a number, multiple of 0.5 (e.g. 2, 2.5)"
-    "\n  startTime (optional): minimum start time, HH:MM/HHMM/H/H.mm - odd minutes round up to next 00/30 - blank to skip"
+    "\n  startTime (optional): earliest start time, HH:MM/HHMM/H/H.mm - odd minutes round up to next 00/30 - slot placed at next free time at/after it - blank to skip"
     "\n  Example:"
     "\n    date,workHour,work,startTime"
     "\n    2026-07-04,3,Grading Assignment 1,\n"
@@ -211,11 +211,17 @@ def find_free_slots(
     return [t for t, reasons in slots_with_overlap(date_str, duration_hours, timetable, all_works, extra_busy) if not reasons]
 
 
-def default_pick(candidates: list[str]) -> str | None:
-    """Pick the highlighted default among free candidates: 8:00, else 13:00, else latest.
-    Input: candidates (list[str]) - ascending 'HH:MM' free start times.
+def default_pick(candidates: list[str], prefer_earliest: bool = False) -> str | None:
+    """Pick the highlighted default among free candidates.
+    Input: candidates (list[str]) - ascending 'HH:MM' free start times,
+        prefer_earliest (bool) - when a min start time was given, pick the first free
+        slot at/after it (i.e. candidates[0]) instead of the 08:00/13:00/latest default.
     Output: (str | None) default candidate, or None if candidates is empty.
     """
+    if not candidates:
+        return None
+    if prefer_earliest:
+        return candidates[0]
     if "08:00" in candidates:
         return "08:00"
     if "13:00" in candidates:
@@ -289,7 +295,7 @@ def auto_find_slot(course_id: int) -> None:
         return
 
     min_start_text = ask(questionary.text(
-        "Auto Find Slot - Minimum start time (blank to skip):",
+        "Auto Find Slot - Earliest start time (blank to skip):",
         instruction=f"\n  Date: {date_str}\n  Hours: {duration:g}\n  Task: {work}\n",
         erase_when_done=True,
     ))
@@ -299,7 +305,7 @@ def auto_find_slot(course_id: int) -> None:
     all_slots = _filter_by_min_start(all_slots, min_start, key=lambda s: s[0], desc="slot")
 
     free_times = [t for t, reasons in all_slots if not reasons]
-    default = default_pick(free_times) if free_times else all_slots[0][0]
+    default = default_pick(free_times, prefer_earliest=bool(min_start)) or all_slots[0][0]
 
     choices = [
         questionary.Choice(
@@ -406,7 +412,7 @@ def auto_find_slot_bulk(course_id: int) -> None:
             console.print(f"[red]Row {i}: no free {parsed['duration']:g}-hour slot on {parsed['date']}.[/red]")
             continue
 
-        time_start = default_pick(candidates)
+        time_start = default_pick(candidates, prefer_earliest=bool(parsed["min_start"]))
         time_end = _fmt(minutes(time_start) + round(parsed["duration"] * 60))
         extra_busy.setdefault(parsed["date"], []).append(
             (minutes(time_start), minutes(time_end), "another row in this run")
@@ -464,6 +470,13 @@ def _demo() -> None:
 
     assert default_pick([]) is None
     assert default_pick(["00:00", "00:30", "05:00"]) == "05:00"  # neither 08:00 nor 13:00 free, falls to latest
+
+    # prefer_earliest: with a min start time given, take the first free slot, not 08:00/13:00
+    open_day = find_free_slots("2026-08-04", 1, [], [])
+    after_nine = _filter_by_min_start(open_day, "09:00")
+    assert default_pick(after_nine) == "13:00"  # old behavior jumps to 13:00
+    assert default_pick(after_nine, prefer_earliest=True) == "09:00"  # next free slot from 09:00
+    assert default_pick([], prefer_earliest=True) is None
 
     lunch_check = find_free_slots("2026-08-04", 1, [], [])
     assert "11:00" in lunch_check
