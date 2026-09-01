@@ -351,10 +351,12 @@ def validate_work(text: str) -> bool | str:
     return True if text.strip() else "Task must not be empty"
 
 
-def parse_time(text: str, strict: bool = True) -> str | None:
+def parse_time(text: str, strict: bool = True, round_up: bool = False) -> str | None:
     """Parse flexible time input (HH:MM, HHMM, H, H.mm) into normalized HH:MM.
-    Input: text (str) - raw input, strict (bool) - if True, minutes must be 00/30.
-    Output: (str | None) 'HH:MM', or None if invalid (or minutes not 00/30 when strict).
+    Input: text (str) - raw input, strict (bool) - if True, minutes must be 00/30,
+        round_up (bool) - if True, round minutes not 00/30 up to the next 00/30 (e.g. 19:45 -> 20:00);
+        overrides strict.
+    Output: (str | None) 'HH:MM', or None if invalid (or minutes not 00/30 when strict, or round-up past 23:30).
     """
     text = text.strip()
     hour = minute = None
@@ -376,8 +378,13 @@ def parse_time(text: str, strict: bool = True) -> str | None:
 
     if hour is None or not (0 <= hour <= 23) or minute is None or not (0 <= minute <= 59):
         return None
-    if strict and minute not in (0, 30):
-        return None
+    if minute not in (0, 30):
+        if round_up:
+            hour, minute = (hour, 30) if minute < 30 else (hour + 1, 0)
+            if hour > 23:
+                return None
+        elif strict:
+            return None
     return f"{hour:02d}:{minute:02d}"
 
 
@@ -749,6 +756,13 @@ def _demo() -> None:
     summary_warn = summarize_entries(["2026-07-20"], task_time_warn)
     assert "not a whole number" in summary_warn
     assert "overlaps lunch" in summary_warn
+
+    assert parse_time("19:45") is None
+    assert parse_time("19:45", round_up=True) == "20:00"
+    assert parse_time("20:15", round_up=True) == "20:30"
+    assert parse_time("20:00", round_up=True) == "20:00"
+    assert parse_time("23:45", round_up=True) is None  # rounds past 23:30
+    assert parse_time("2015", round_up=True) == "20:30"
 
 
 if __name__ == "__main__":

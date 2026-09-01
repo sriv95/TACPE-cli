@@ -34,7 +34,7 @@ AUTO_SLOT_CSV_INSTRUCTION = (
     "\n  Required columns: date, workHour, work (optional: startTime; other columns are ignored)"
     "\n  date: YYYY-MM-DD"
     "\n  workHour: hours as a number, multiple of 0.5 (e.g. 2, 2.5)"
-    "\n  startTime (optional): minimum start time, HH:MM/HHMM/H/H.mm - blank to skip"
+    "\n  startTime (optional): minimum start time, HH:MM/HHMM/H/H.mm - odd minutes round up to next 00/30 - blank to skip"
     "\n  Example:"
     "\n    date,workHour,work,startTime"
     "\n    2026-07-04,3,Grading Assignment 1,\n"
@@ -293,7 +293,7 @@ def auto_find_slot(course_id: int) -> None:
         instruction=f"\n  Date: {date_str}\n  Hours: {duration:g}\n  Task: {work}\n",
         erase_when_done=True,
     ))
-    min_start = parse_time(min_start_text) if min_start_text.strip() else None
+    min_start = parse_time(min_start_text, round_up=True) if min_start_text.strip() else None
     if min_start_text.strip() and min_start is None:
         console.print("[yellow]Could not parse minimum start time - ignoring it.[/yellow]")
     all_slots = _filter_by_min_start(all_slots, min_start, key=lambda s: s[0], desc="slot")
@@ -354,7 +354,7 @@ def _validate_bulk_row(row: dict, line: int) -> dict | None:
     min_start = None
     start_text = (row.get("startTime") or "").strip()
     if start_text:
-        min_start = parse_time(start_text)
+        min_start = parse_time(start_text, round_up=True)
         if min_start is None:
             errors.append("startTime invalid format")
 
