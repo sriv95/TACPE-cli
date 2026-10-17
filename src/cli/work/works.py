@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 import questionary
 from rich.console import Console
 
-from src.func.const import ADD_WORK_URL, BASE_URL, DELETE_WORK_URL, EDIT_WORK_URL, WORK_REPORT_URL
+from src.func.const import ADD_WORK_URL, BASE_URL, DELETE_WORK_URL, EDIT_WORK_URL, MOVE_WORK_URL, WORK_REPORT_URL
 from src.helper.batch import run_batch
 from src.helper.exceptions import UserCancelled
 from src.helper.prompt import ask, confirm_or_cancel
@@ -26,6 +26,7 @@ BACK_TO_COURSES = object()
 EXIT_APP = object()
 FILTER = object()
 SORT = object()
+FIX_ORDER = object()
 
 BANGKOK = ZoneInfo("Asia/Bangkok")
 
@@ -146,6 +147,13 @@ def delete_work(course_id: int, work_id: str) -> None:
     post_json(DELETE_WORK_URL, {"courseId": course_id, "workId": work_id})
 
 
+def move_work(course_id: int, work_id: str, direction: int) -> None:
+    """POST a one-row move of a work entry.
+    Input: course_id (int), work_id (str), direction (int) - -1 up, 1 down.
+    """
+    post_json(MOVE_WORK_URL, {"courseId": course_id, "workId": work_id, "movingDir": direction})
+
+
 def format_entry_line(entry: dict, with_hours: bool = True) -> str:
     """Format one entry as 'date | start - end (N hrs) | work' for print lines.
     Input: entry (dict) - date/time_start/time_end/work, optional hours,
@@ -240,6 +248,72 @@ def _prompt_filter(works: list[dict], current_month: str | None) -> str | None:
     ))
 
 
+def _work_key(w: dict) -> tuple[str, str]:
+    """Server-order sort key: date, then time range."""
+    return w["date"], w["time"]
+
+
+def _is_server_sorted(works: list[dict]) -> bool:
+    """Check fetched works are in date order, either direction.
+    Input: works (list[dict]) - in server order.
+    Output: (bool).
+    """
+    keys = [_work_key(w) for w in works]
+    return keys == sorted(keys) or keys == sorted(keys, reverse=True)
+
+
+def _plan_moves(works: list[dict], descending: bool) -> list[str]:
+    """Plan single-row up-moves (insertion sort) that turn server order into sorted order.
+    Input: works (list[dict]) - server order, descending (bool) - newest first.
+    Output: (list[str]) work ids; each id is moved up one row, in order.
+    """
+    order = [w["_id"] for w in works]
+    target = [w["_id"] for w in sorted(works, key=_work_key, reverse=descending)]
+    moves = []
+    for i, wid in enumerate(target):
+        j = order.index(wid)
+        moves += [wid] * (j - i)
+        order.insert(i, order.pop(j))
+    return moves
+
+
+def sort_works_on_server(course_id: int, works: list[dict]) -> None:
+    """Reorder server entries with single-row moveWork calls (Up = oldest first).
+    Verifies the first move went the expected way before continuing; stops on the first failure.
+    Input: course_id (int), works (list[dict]) - all course works in server order.
+    """
+    direction = ask(questionary.select(
+        "Sort works on server:",
+        choices=[
+            questionary.Choice("Up (oldest first)", value="up"),
+            questionary.Choice("Down (newest first)", value="down"),
+            questionary.Choice("Cancel", value=None),
+        ],
+        erase_when_done=True,
+    ))
+    if direction is None:
+        return
+
+    moves = _plan_moves(works, direction == "down")
+    if not moves or not confirm_or_cancel(
+        f"Move rows {len(moves)} time(s) to sort? (y/N)", default=False, erase_when_done=True
+    ):
+        return
+
+    ids = [w["_id"] for w in works]
+    for n, wid in enumerate(moves):
+        try:
+            move_work(course_id, wid, -1)
+            if n == 0:
+                new_ids = [w["_id"] for w in fetch_works(course_id)]
+                if new_ids.index(wid) != ids.index(wid) - 1:
+                    raise RuntimeError("first move did not move the row up; aborting")
+        except Exception as e:
+            console.print(f"[red]Sort stopped after {n} of {len(moves)} move(s): {e}[/red]")
+            return
+    console.print(f"[bold green]Sorted with {len(moves)} move(s).[/bold green]")
+
+
 SORT_CYCLE = {"newest": "oldest", "oldest": "none", "none": "newest"}
 
 
@@ -255,7 +329,16 @@ def view_works(course_id: int, course_label: str) -> None:
         if sort_mode != "none":
             filtered = sorted(filtered, key=lambda w: w["date"], reverse=sort_mode == "newest")
 
-        choices = [
+        choices = []
+        if not _is_server_sorted(works):
+            choices += [
+                questionary.Choice(
+                    title=[("fg:#ffd000 bold", "⚠ Works not sorted on server - press to sort (up/down)")],
+                    value=FIX_ORDER,
+                ),
+                questionary.Separator(),
+            ]
+        choices += [
             questionary.Choice(
                 title=[
                     (f"fg:{weekday_color(w['date'])}", format_date_dow(w["date"])),
@@ -292,7 +375,9 @@ def view_works(course_id: int, course_label: str) -> None:
             return  # Ctrl-C on the works list itself -> back to course selection
 
         try:
-            if selected is FILTER:
+            if selected is FIX_ORDER:
+                sort_works_on_server(course_id, works)
+            elif selected is FILTER:
                 filter_month = _prompt_filter(works, filter_month)
             elif selected is SORT:
                 sort_mode = SORT_CYCLE[sort_mode]
