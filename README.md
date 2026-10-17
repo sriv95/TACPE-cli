@@ -40,7 +40,7 @@ tacpe
    - **Browser login**: opens a browser window, log in with your CMU account
    - **Manual paste**: log into the site yourself, open DevTools → Network tab, copy the `Cookie` header from any request, paste it in.
 
-   The cookie is cached in `.cache/.cookie` (gitignored) and reused on future runs until it expires.
+   The cookie is cached in `~/.tacpe/.cookie` (override dir with `TACPE_CONFIG_DIR`) and reused on future runs until it expires.
 
 2. **Select course** - pick course/section you're a TA for from academic term/year
 
@@ -77,7 +77,7 @@ Required columns (extra columns are ignored):
 | column      | format                                              |
 |-------------|------------------------------------------------------|
 | `date`      | `YYYY-MM-DD` or `DDMonYYYY` (e.g. `04Aug2026`)        |
-| `workHour`  | hours as a number, multiple of `0.5` (e.g. `2`, `2.5`) |
+| `workHour`  | hours as a number, multiple of `0.5` (e.g. `2`, `2.5`), or `HH:mm[:ss]` (e.g. `1:30`) |
 | `work` or `task` | task description                                 |
 | `startTime` | (optional) earliest start time, `HH:MM`/`HHMM`/`H`/`H.mm` - the slot is placed at the next free time at/after it; blank to skip |
 
@@ -90,7 +90,7 @@ date,workHour,work,startTime
 
 ### Enrolled Course Time Table
 
-First run of Auto Find Slot offers to edit your weekly course schedule (`.cache/.timetable`, gitignored) - name, day of week, start/end time - used to avoid scheduling TA work over your classes.
+First run of Auto Find Slot offers to edit your weekly course schedule (`~/.tacpe/.timetable`) - name, day of week, start/end time - used to avoid scheduling TA work over your classes.
 
 ## Agent Skill
 

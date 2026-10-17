@@ -16,7 +16,7 @@ uv tool install git+https://github.com/sriv95/TACPE-cli   # or: uvx --from git+h
 tacpe login browser   # or: tacpe login cookie (paste a Cookie header manually)
 ```
 
-Session cookie caches in `.cache/.cookie`; re-login only after it expires (commands print `Not logged in. Run 'tacpe login' first.` when it has).
+Session cookie caches in `~/.tacpe/.cookie` (override dir with `TACPE_CONFIG_DIR`); re-login only after it expires (commands print `Not logged in. Run 'tacpe login' first.` when it has).
 
 ## Quick reference
 
@@ -25,11 +25,11 @@ Session cookie caches in `.cache/.cookie`; re-login only after it expires (comma
 | `tacpe login [browser\|cookie]` / `tacpe logout` | Auth |
 | `tacpe courses [--term N] [--year Y] [--json]` | List courses you TA for |
 | `tacpe list <target> [--term] [--year] [--sec] [--json]` | List work entries (includes `workId`) |
-| `tacpe add <target> --date --startTime --endTime --work [--force]` | Add one entry |
+| `tacpe add <target> --date --startTime --endTime --work\|--task [--force]` | Add one entry |
 | `tacpe add <target> --bulk file.csv [--force]` | Add many, from CSV |
-| `tacpe edit <target> --workId ID --date --startTime --endTime --work [--force]` | Full replace of one entry |
+| `tacpe edit <target> --workId ID --date --startTime --endTime --work\|--task [--force]` | Full replace of one entry |
 | `tacpe delete <target> --workId ID` | Delete one entry |
-| `tacpe auto <target> --date --workHour --work [--startTime] [--force]` | Find a free slot and add it |
+| `tacpe auto <target> --date --workHour --work\|--task [--startTime] [--force]` | Find a free slot and add it |
 | `tacpe auto <target> --bulk file.csv [--force]` | Same, bulk from CSV |
 | `tacpe timetable [list\|add\|edit\|delete] ...` | Manage the saved weekly class schedule (no login needed) |
 | `tacpe check [--term] [--year] [--json]` | Report overlapping work entries across all courses |
@@ -40,6 +40,8 @@ Run `tacpe <command> --help` for exact flags; `tacpe help` for the full list.
 
 - `<target>` — courseNo (e.g. `21-259`) or numeric courseId, from `tacpe courses`. Add `--sec N` if a courseNo has multiple sections.
 - Times — `HH:MM`, `HHMM`, `H`, or `H.mm`; work entries require minutes `00`/`30`.
+- `--workHour` — hours (`2`, `2.5`) or `HH:mm[:ss]` (`1:30`); multiple of 0.5.
+- `--work` and `--task` are aliases.
 - `--term`/`--year` default to the current term; `--year` also accepts combined `term/year` (e.g. `1/2026`).
 - `--json` on `courses`, `list`, `timetable list`, `check` for structured output — prefer this over parsing table text.
 - `add`/`edit`/`auto` validate input and soft-check for overlaps/hour limits by default; add `--force` (alias `--no-check`) to skip.
@@ -61,8 +63,8 @@ tacpe check --json
 
 ## CSV bulk formats
 
-- `add --bulk`: columns `date,startTime,endTime,work`.
-- `auto --bulk`: columns `date,workHour,work,startTime` (startTime optional, minimum start).
+- `add --bulk`: columns `date,startTime,endTime,work` (`task` accepted as alias for `work`).
+- `auto --bulk`: columns `date,workHour,work,startTime` (`task` alias for `work`; startTime optional, minimum start; workHour also accepts `HH:mm[:ss]`).
 
 ## Common mistakes
 
