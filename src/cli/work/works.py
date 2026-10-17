@@ -457,26 +457,37 @@ def delete_multiple_works(course_id: int, works: list[dict]) -> None:
 
 
 def work_entry_menu(course_id: int, work: dict) -> None:
-    """Prompt user to Edit/Delete/Back for a selected work entry.
+    """Prompt user to Edit/Clone/Move/Delete/Back for a selected work entry; Move re-prompts.
     Input: course_id (int), work (dict) - the selected work entry.
     """
-    choice = ask(questionary.select(
-        "Work entry:",
-        choices=[
-            questionary.Choice("Edit", value="edit"),
-            questionary.Choice("Clone", value="clone"),
-            questionary.Choice("Delete", value="delete"),
-            questionary.Choice("Back to Works", value="back"),
-        ],
-        instruction=f"\n  {format_date(work['date'])} | {format_time(work['time'])} | {work['work']}\n",
-        erase_when_done=True,
-    ))
-    if choice == "edit":
-        edit_work_entry(course_id, work)
-    elif choice == "clone":
-        clone_work_entry(course_id, work)
-    elif choice == "delete":
-        delete_work_entry(course_id, work)
+    while True:
+        choice = ask(questionary.select(
+            "Work entry:",
+            choices=[
+                questionary.Choice("Edit", value="edit"),
+                questionary.Choice("Clone", value="clone"),
+                questionary.Choice("Move up", value=-1),
+                questionary.Choice("Move down", value=1),
+                questionary.Choice("Delete", value="delete"),
+                questionary.Choice("Back to Works", value="back"),
+            ],
+            instruction=f"\n  {format_date(work['date'])} | {format_time(work['time'])} | {work['work']}\n",
+            erase_when_done=True,
+        ))
+        if choice in (-1, 1):
+            try:
+                move_work(course_id, work["_id"], choice)
+                console.print(f"[green]Moved {'up' if choice == -1 else 'down'}.[/green]")
+            except Exception as e:
+                console.print(f"[red]Move failed: {e}[/red]")
+            continue
+        if choice == "edit":
+            edit_work_entry(course_id, work)
+        elif choice == "clone":
+            clone_work_entry(course_id, work)
+        elif choice == "delete":
+            delete_work_entry(course_id, work)
+        return
 
 
 def add_works_menu(course_id: int) -> None:
