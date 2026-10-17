@@ -1,11 +1,14 @@
 """Recurring weekly enrolled-course timetable, used by Auto Find Slot to avoid clashes."""
 
+import csv
 import json
+from pathlib import Path
 
 import questionary
 from rich.console import Console
 
 from src.helper.prompt import ask
+from src.cli.work.bulk_works import read_csv_rows, select_csv_path
 from src.cli.work.works import minutes, parse_time
 from src.func.const import CONFIG_DIR
 
@@ -15,8 +18,12 @@ TIMETABLE_FILE = CONFIG_DIR / ".timetable"
 
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
+COLUMNS = ("name", "day", "startTime", "endTime")
+
 BACK = object()
 ADD_TIME = object()
+IMPORT = object()
+EXPORT = object()
 
 
 def load_timetable() -> list[dict]:
@@ -42,6 +49,69 @@ def entries_for_weekday(entries: list[dict], weekday: int) -> list[dict]:
     Output: (list[dict]) matching entries.
     """
     return [e for e in entries if e["weekday"] == weekday]
+
+
+def export_timetable(entries: list[dict], path: str) -> None:
+    """Write the timetable to a CSV file (columns name/day/startTime/endTime).
+    Input: entries (list[dict]), path (str).
+    """
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(COLUMNS)
+        for e in entries:
+            writer.writerow([e["name"], WEEKDAYS[e["weekday"]], e["start"], e["end"]])
+
+
+def parse_timetable_rows(rows: list[dict]) -> tuple[list[dict], list[str]]:
+    """Validate CSV rows into timetable entries.
+    Input: rows (list[dict]) - dicts with name/day/startTime/endTime.
+    Output: (entries, errors) - valid entries, and one message per bad row (blank rows skipped).
+    """
+    entries, errors = [], []
+    for line, row in enumerate(rows, start=2):
+        if not any((row.get(c) or "").strip() for c in COLUMNS):
+            continue
+        name = (row["name"] or "").strip()
+        day = (row["day"] or "").strip().title()[:3]
+        start = parse_time(row["startTime"] or "", strict=False)
+        end = parse_time(row["endTime"] or "", strict=False)
+        problems = []
+        if not name:
+            problems.append("name empty")
+        if day not in WEEKDAYS:
+            problems.append("day must be Mon..Sun")
+        if start is None:
+            problems.append("startTime invalid format")
+        if end is None:
+            problems.append("endTime invalid format")
+        if start and end and minutes(end) <= minutes(start):
+            problems.append("endTime must be after startTime")
+        if problems:
+            errors.append(f"Row {line}: {'; '.join(problems)}")
+            continue
+        entries.append({"name": name, "weekday": WEEKDAYS.index(day), "start": start, "end": end})
+    return entries, errors
+
+
+def import_timetable(path: str, replace: bool = False) -> tuple[int, list[str]]:
+    """Import timetable entries from CSV; saves nothing if any row is invalid.
+    Input: path (str), replace (bool) - overwrite the saved timetable instead of merging (duplicates skipped).
+    Output: (int, list[str]) - number of entries added, row errors.
+    Raises FileNotFoundError / ValueError (missing columns) on a bad file.
+    """
+    rows = read_csv_rows(path, COLUMNS)
+    if rows is None:
+        raise ValueError("CSV missing columns")
+    new, errors = parse_timetable_rows(rows)
+    if errors:
+        return 0, errors
+    merged = [] if replace else load_timetable()
+    before = len(merged)
+    for e in new:
+        if e not in merged:
+            merged.append(e)
+    save_timetable(merged)
+    return len(merged) - before, []
 
 
 def _validate_weekday_time(text: str) -> bool | str:
@@ -127,6 +197,43 @@ def _group_label(group: dict) -> str:
     return f"{days} | {group['start']} - {group['end']} | {group['name']}"
 
 
+def _import_flow() -> None:
+    path = select_csv_path(
+        "Import Time Table - CSV file:",
+        "\n  Columns: name, day (Mon..Sun), startTime, endTime (one row per day)\n",
+    )
+    if path is None:
+        return
+    replace = ask(questionary.select(
+        "Import mode:",
+        choices=[
+            questionary.Choice("Merge with current (skip duplicates)", value=False),
+            questionary.Choice("Replace current", value=True),
+        ],
+        erase_when_done=True,
+    ))
+    try:
+        added, errors = import_timetable(path, replace=replace)
+    except FileNotFoundError:
+        console.print(f"[red]File not found: {path}[/red]")
+        return
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        return
+    for err in errors:
+        console.print(f"[red]{err}[/red]")
+    if errors:
+        console.print("[red]Nothing imported - fix the rows above.[/red]")
+    else:
+        console.print(f"[bold green]Imported {added} entries.[/bold green]")
+
+
+def _export_flow(entries: list[dict]) -> None:
+    path = ask(questionary.text("Export Time Table - CSV path:", default="timetable.csv", erase_when_done=True))
+    export_timetable(entries, str(Path(path).expanduser()))
+    console.print(f"[bold green]Exported {len(entries)} entries to {path}.[/bold green]")
+
+
 def edit_timetable_menu() -> None:
     """List timetable entries as choices, with Add Time / Back."""
     while True:
@@ -135,6 +242,8 @@ def edit_timetable_menu() -> None:
         choices = [questionary.Choice(_group_label(g), value=gi) for gi, g in enumerate(groups)]
         choices.append(questionary.Separator())
         choices.append(questionary.Choice("Add Time", value=ADD_TIME))
+        choices.append(questionary.Choice("Import from CSV", value=IMPORT))
+        choices.append(questionary.Choice("Export to CSV", value=EXPORT))
         choices.append(questionary.Choice("Back to Time Table", value=BACK))
 
         selected = ask(questionary.select("Edit Time Table:", choices=choices, erase_when_done=True))
@@ -143,6 +252,12 @@ def edit_timetable_menu() -> None:
         if selected is ADD_TIME:
             entries.extend(_prompt_time_entry())
             save_timetable(entries)
+            continue
+        if selected is IMPORT:
+            _import_flow()
+            continue
+        if selected is EXPORT:
+            _export_flow(entries)
             continue
 
         group = groups[selected]

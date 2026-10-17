@@ -23,7 +23,9 @@ from src.cli.work.auto_slot import (
     slots_with_overlap,
 )
 from src.cli.work.bulk_works import REQUIRED_COLUMNS, _validate_row, read_csv_rows
-from src.cli.work.timetable import WEEKDAYS, _row_label, load_timetable, save_timetable
+from src.cli.work.timetable import (
+    WEEKDAYS, _row_label, export_timetable, import_timetable, load_timetable, save_timetable,
+)
 from src.cli.work.works import (
     delete_work,
     edit_work,
@@ -74,7 +76,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     timetable_parser = subparsers.add_parser("timetable", help="Show or edit the saved enrolled-course timetable")
     timetable_parser.add_argument(
-        "action", nargs="?", choices=["list", "add", "edit", "delete"], default="list", help="Defaults to 'list'"
+        "action", nargs="?", choices=["list", "add", "edit", "delete", "import", "export"], default="list", help="Defaults to 'list'"
     )
     timetable_parser.add_argument("--name", dest="name", default=None, help="Course/entry name (required for add/edit)")
     timetable_parser.add_argument(
@@ -91,6 +93,12 @@ def build_parser() -> argparse.ArgumentParser:
     timetable_parser.add_argument(
         "--index", dest="index", type=int, default=None,
         help="0-based entry index, see `tacpe timetable list --json` (required for edit/delete)",
+    )
+    timetable_parser.add_argument(
+        "--file", dest="file", default=None, help="CSV path (required for import/export); columns name,day,startTime,endTime"
+    )
+    timetable_parser.add_argument(
+        "--replace", dest="replace", action="store_true", help="import: overwrite the saved timetable instead of merging"
     )
     timetable_parser.add_argument("--json", dest="as_json", action="store_true", help=JSON_HELP)
 
@@ -378,6 +386,28 @@ def _timetable_delete_command(index: int | None) -> None:
     removed = entries.pop(i)
     save_timetable(entries)
     console.print(f"[bold red]Deleted:[/bold red] {_row_label(removed)}")
+
+
+def _timetable_import_command(file: str | None, replace: bool) -> None:
+    if file is None:
+        raise SystemExit("Missing required: --file")
+    try:
+        added, errors = import_timetable(file, replace)
+    except FileNotFoundError:
+        raise SystemExit(f"--file: not found: {file}")
+    except ValueError as e:
+        raise SystemExit(str(e))
+    if errors:
+        raise SystemExit("\n".join(errors) + "\nNothing imported.")
+    console.print(f"[bold green]Imported:[/bold green] {added} entries")
+
+
+def _timetable_export_command(file: str | None) -> None:
+    if file is None:
+        raise SystemExit("Missing required: --file")
+    entries = load_timetable()
+    export_timetable(entries, file)
+    console.print(f"[bold green]Exported:[/bold green] {len(entries)} entries to {file}")
 
 
 def _check_command(term: int | None, year: str | None, as_json: bool) -> None:
@@ -739,6 +769,10 @@ def run(argv: list[str] | None = None) -> bool:
             _timetable_edit_command(args.index, args.name, args.day, args.start_time, args.end_time)
         elif args.action == "delete":
             _timetable_delete_command(args.index)
+        elif args.action == "import":
+            _timetable_import_command(args.file, args.replace)
+        elif args.action == "export":
+            _timetable_export_command(args.file)
         return True
     if args.command == "check":
         _check_command(args.term, args.year, args.as_json)

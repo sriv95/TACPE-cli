@@ -90,7 +90,7 @@ date,workHour,work,startTime
 
 ### Enrolled Course Time Table
 
-First run of Auto Find Slot offers to edit your weekly course schedule (`~/.tacpe/.timetable`) - name, day of week, start/end time - used to avoid scheduling TA work over your classes.
+First run of Auto Find Slot offers to edit your weekly course schedule (`~/.tacpe/.timetable`) - name, day of week, start/end time - used to avoid scheduling TA work over your classes. Import/export it as CSV (`name,day,startTime,endTime`) from the Edit Time Table menu or `tacpe timetable import|export --file <path>`.
 
 ## Agent Skill
 
