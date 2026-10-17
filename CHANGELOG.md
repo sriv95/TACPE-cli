@@ -1,5 +1,11 @@
 # Changelog
 
+## [v1.1.8] - 2026-10-17
+
+### Added
+- Yellow warning in the works list when the server order is not sorted by date; pressing it asks Up/Down and sorts on the server through the `moveWork` API (one row per call).
+- **Move up** / **Move down** in the work entry menu, moving that row one place on the server.
+
 ## [v1.1.7] - 2026-09-01
 
 ### Changed
