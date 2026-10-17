@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- **Clear All** in Edit Time Table (asks to confirm) and `tacpe timetable clear` to delete every timetable entry.
 - Import/export the weekly timetable as CSV (`name,day,startTime,endTime`): **Import from CSV** / **Export to CSV** in Edit Time Table, and `tacpe timetable import|export --file <path>` (`--replace` to overwrite instead of merge). Import is all-or-nothing and skips duplicates when merging.
 
 ## [v1.1.8] - 2026-10-17

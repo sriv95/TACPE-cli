@@ -7,7 +7,7 @@ from pathlib import Path
 import questionary
 from rich.console import Console
 
-from src.helper.prompt import ask
+from src.helper.prompt import ask, confirm_or_cancel
 from src.cli.work.bulk_works import read_csv_rows, select_csv_path
 from src.cli.work.works import minutes, parse_time
 from src.func.const import CONFIG_DIR
@@ -24,6 +24,7 @@ BACK = object()
 ADD_TIME = object()
 IMPORT = object()
 EXPORT = object()
+CLEAR = object()
 
 
 def load_timetable() -> list[dict]:
@@ -244,6 +245,7 @@ def edit_timetable_menu() -> None:
         choices.append(questionary.Choice("Add Time", value=ADD_TIME))
         choices.append(questionary.Choice("Import from CSV", value=IMPORT))
         choices.append(questionary.Choice("Export to CSV", value=EXPORT))
+        choices.append(questionary.Choice("Clear All", value=CLEAR))
         choices.append(questionary.Choice("Back to Time Table", value=BACK))
 
         selected = ask(questionary.select("Edit Time Table:", choices=choices, erase_when_done=True))
@@ -258,6 +260,10 @@ def edit_timetable_menu() -> None:
             continue
         if selected is EXPORT:
             _export_flow(entries)
+            continue
+        if selected is CLEAR:
+            if entries and confirm_or_cancel(f"Delete all {len(entries)} timetable entries?", default=False):
+                save_timetable([])
             continue
 
         group = groups[selected]

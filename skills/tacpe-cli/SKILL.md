@@ -31,7 +31,7 @@ Session cookie caches in `~/.tacpe/.cookie` (override dir with `TACPE_CONFIG_DIR
 | `tacpe delete <target> --workId ID` | Delete one entry |
 | `tacpe auto <target> --date --workHour --work\|--task [--startTime] [--force]` | Find a free slot and add it |
 | `tacpe auto <target> --bulk file.csv [--force]` | Same, bulk from CSV |
-| `tacpe timetable [list\|add\|edit\|delete\|import\|export] ...` | Manage the saved weekly class schedule (no login needed) |
+| `tacpe timetable [list\|add\|edit\|delete\|import\|export\|clear] ...` | Manage the saved weekly class schedule (no login needed) |
 | `tacpe check [--term] [--year] [--json]` | Report overlapping work entries across all courses |
 
 Run `tacpe <command> --help` for exact flags; `tacpe help` for the full list.
@@ -46,7 +46,7 @@ Run `tacpe <command> --help` for exact flags; `tacpe help` for the full list.
 - `--json` on `courses`, `list`, `timetable list`, `check` for structured output — prefer this over parsing table text.
 - `add`/`edit`/`auto` validate input and soft-check for overlaps/hour limits by default; add `--force` (alias `--no-check`) to skip.
 - `--workId` values come from `tacpe list <target> --json`.
-- `timetable` days: `Mon Tue Wed Thu Fri Sat Sun`. `timetable edit`/`delete` need `--index` from `tacpe timetable list --json`. `timetable import|export` need `--file <csv>` (columns `name,day,startTime,endTime`); `import --replace` overwrites, else merges and skips duplicates.
+- `timetable` days: `Mon Tue Wed Thu Fri Sat Sun`. `timetable edit`/`delete` need `--index` from `tacpe timetable list --json`. `timetable import|export` need `--file <csv>` (columns `name,day,startTime,endTime`); `import --replace` overwrites, else merges and skips duplicates. `timetable clear` deletes every entry with no confirmation.
 
 ## Examples
 

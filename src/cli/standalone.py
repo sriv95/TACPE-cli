@@ -76,7 +76,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     timetable_parser = subparsers.add_parser("timetable", help="Show or edit the saved enrolled-course timetable")
     timetable_parser.add_argument(
-        "action", nargs="?", choices=["list", "add", "edit", "delete", "import", "export"], default="list", help="Defaults to 'list'"
+        "action", nargs="?", choices=["list", "add", "edit", "delete", "import", "export", "clear"], default="list", help="Defaults to 'list'"
     )
     timetable_parser.add_argument("--name", dest="name", default=None, help="Course/entry name (required for add/edit)")
     timetable_parser.add_argument(
@@ -408,6 +408,12 @@ def _timetable_export_command(file: str | None) -> None:
     entries = load_timetable()
     export_timetable(entries, file)
     console.print(f"[bold green]Exported:[/bold green] {len(entries)} entries to {file}")
+
+
+def _timetable_clear_command() -> None:
+    count = len(load_timetable())
+    save_timetable([])
+    console.print(f"[bold red]Cleared:[/bold red] {count} entries")
 
 
 def _check_command(term: int | None, year: str | None, as_json: bool) -> None:
@@ -773,6 +779,8 @@ def run(argv: list[str] | None = None) -> bool:
             _timetable_import_command(args.file, args.replace)
         elif args.action == "export":
             _timetable_export_command(args.file)
+        elif args.action == "clear":
+            _timetable_clear_command()
         return True
     if args.command == "check":
         _check_command(args.term, args.year, args.as_json)
